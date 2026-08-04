@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import AppHeader from '@/components/layout/AppHeader.vue'
+import BottomSheet from '@/components/common/BottomSheet.vue'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -76,11 +77,26 @@ async function onLogout() {
   await account.logout()
 }
 
-async function onPickStore(id: string) {
-  if (id === currentStoreId.value) return
-  await sync.syncNow() // 1. push perubahan outlet lama dulu (sebelum data lokal di-reset)
-  await account.setCurrentStore(id) // 2. pindah outlet + buang data lokal outlet lama
-  await sync.syncNow() // 3. tarik ulang data outlet baru dari nol
+// Ganti outlet = destruktif (data lokal outlet lama di-reset) → wajib konfirmasi.
+const pendingSwitch = ref<{ id: string; name: string } | null>(null)
+const switching = ref(false)
+
+function askSwitch(s: { id: string | number; name: string }) {
+  pendingSwitch.value = { id: String(s.id), name: s.name }
+}
+
+async function confirmSwitch() {
+  const target = pendingSwitch.value
+  if (!target || switching.value) return
+  switching.value = true
+  try {
+    await sync.syncNow() // 1. push perubahan outlet lama dulu (sebelum data lokal di-reset)
+    await account.setCurrentStore(target.id) // 2. pindah outlet + buang data lokal outlet lama
+    await sync.syncNow() // 3. tarik ulang data outlet baru dari nol
+  } finally {
+    switching.value = false
+    pendingSwitch.value = null
+  }
 }
 
 // --- Kelola outlet ---
@@ -261,14 +277,25 @@ const syncLabel = computed(() => {
 
               <!-- Mode normal -->
               <template v-else>
-                <button
-                  class="flex flex-1 items-center gap-2 text-left"
-                  @click="onPickStore(String(s.id))"
-                >
-                  <span class="font-medium">{{ s.name }}</span>
+                <div class="flex min-w-0 flex-1 items-center gap-2">
+                  <span class="truncate font-medium">{{ s.name }}</span>
                   <Badge variant="secondary">{{ s.role }}</Badge>
-                </button>
-                <Check v-if="String(s.id) === currentStoreId" class="size-4 text-primary" />
+                  <Badge
+                    v-if="String(s.id) === currentStoreId"
+                    class="bg-primary/15 text-primary hover:bg-primary/15"
+                  >
+                    Aktif
+                  </Badge>
+                </div>
+                <Button
+                  v-if="String(s.id) !== currentStoreId"
+                  size="sm"
+                  variant="outline"
+                  class="h-8"
+                  @click="askSwitch(s)"
+                >
+                  Ganti
+                </Button>
                 <button
                   v-if="s.role === 'owner'"
                   class="text-muted-foreground transition active:text-foreground"
@@ -281,6 +308,37 @@ const syncLabel = computed(() => {
             </div>
           </div>
         </section>
+
+        <!-- Konfirmasi ganti outlet (destruktif: reset data lokal) -->
+        <BottomSheet
+          :open="!!pendingSwitch"
+          title="Ganti outlet?"
+          @update:open="(v: boolean) => { if (!v && !switching) pendingSwitch = null }"
+        >
+          <div class="space-y-4 p-5">
+            <p class="text-sm text-muted-foreground">
+              Pindah ke
+              <span class="font-semibold text-foreground">{{ pendingSwitch?.name }}</span>?
+              Data outlet saat ini akan dibersihkan dari perangkat lalu diganti data
+              outlet tujuan. Perubahan yang belum tersinkron dikirim dulu — data di
+              server tetap aman.
+            </p>
+            <div class="flex gap-2">
+              <Button
+                variant="outline"
+                class="flex-1"
+                :disabled="switching"
+                @click="pendingSwitch = null"
+              >
+                Batal
+              </Button>
+              <Button class="flex-1" :disabled="switching" @click="confirmSwitch">
+                <Loader2 v-if="switching" class="size-4 animate-spin" />
+                Ya, ganti
+              </Button>
+            </div>
+          </div>
+        </BottomSheet>
 
         <!-- Status sync -->
         <Card>
