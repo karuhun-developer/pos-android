@@ -5,11 +5,13 @@ import { SaleRepository } from '@/repositories/sale.repo'
 import { SaleItemRepository } from '@/repositories/saleItem.repo'
 import { CheckoutService, type CheckoutInput, type CheckoutResult } from '@/services/checkout.service'
 import type { Sale, SaleItem } from '@/db/types'
-import { dayKey } from '@/lib/datetime'
+import { presetRange, type DateRange } from '@/lib/dateRange'
 
 export const useSalesStore = defineStore('sales', () => {
   const recent = ref<Sale[]>([])
   const loading = ref(false)
+  // Default: bulan berjalan. Semua isi `recent` selalu dalam rentang ini.
+  const range = ref<DateRange>(presetRange('month'))
 
   function saleRepo() {
     return new SaleRepository(getDb())
@@ -18,21 +20,24 @@ export const useSalesStore = defineStore('sales', () => {
     return new SaleItemRepository(getDb())
   }
 
-  const today = computed(() => {
-    const key = dayKey(Date.now())
-    const rows = recent.value.filter(
-      (s) => s.status === 'completed' && dayKey(s.sold_at) === key,
-    )
+  // Ringkasan atas = agregat rentang aktif (recent sudah ter-filter rentang).
+  const summary = computed(() => {
+    const rows = recent.value.filter((s) => s.status === 'completed')
     return {
       count: rows.length,
       total: rows.reduce((sum, s) => sum + s.total, 0),
     }
   })
 
-  async function load(limit = 50) {
+  async function load() {
     loading.value = true
-    recent.value = await saleRepo().listRecent(limit)
+    recent.value = await saleRepo().listBetween(range.value.from, range.value.to)
     loading.value = false
+  }
+
+  async function setRange(r: DateRange) {
+    range.value = r
+    await load()
   }
 
   async function getWithItems(
@@ -49,5 +54,5 @@ export const useSalesStore = defineStore('sales', () => {
     return res
   }
 
-  return { recent, loading, today, load, getWithItems, checkout }
+  return { recent, loading, range, summary, load, setRange, getWithItems, checkout }
 })

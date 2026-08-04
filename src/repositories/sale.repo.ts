@@ -13,6 +13,15 @@ export class SaleRepository extends BaseRepository<Sale> {
     )
   }
 
+  /** Transaksi dalam rentang `sold_at` (inklusif), termasuk void — buat filter tanggal. */
+  listBetween(from: number, to: number, limit = 1000): Promise<Sale[]> {
+    return this.db.query<Sale>(
+      `SELECT * FROM sales WHERE deleted_at IS NULL AND sold_at BETWEEN ? AND ?
+       ORDER BY sold_at DESC LIMIT ?`,
+      [from, to, limit],
+    )
+  }
+
   /**
    * Nomor struk device-prefixed: `<PREFIX>-<YYYYMMDD>-<seq>`.
    * seq = jumlah struk device+hari ini + 1, jadi unik & urut walau offline.

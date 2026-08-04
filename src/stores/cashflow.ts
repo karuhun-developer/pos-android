@@ -4,7 +4,8 @@ import { getDb } from '@/db/sqlite'
 import { CashflowEntryRepository } from '@/repositories/cashflowEntry.repo'
 import { CashflowCategoryRepository } from '@/repositories/cashflowCategory.repo'
 import type { CashflowCategory, CashflowEntry } from '@/db/types'
-import { nowMs, monthKey } from '@/lib/datetime'
+import { nowMs } from '@/lib/datetime'
+import { presetRange, type DateRange } from '@/lib/dateRange'
 
 export interface NewEntry {
   categoryId: string
@@ -18,6 +19,8 @@ export const useCashflowStore = defineStore('cashflow', () => {
   const entries = ref<CashflowEntry[]>([])
   const categories = ref<CashflowCategory[]>([])
   const loading = ref(false)
+  // Default: bulan berjalan. Isi `entries` selalu dalam rentang ini.
+  const range = ref<DateRange>(presetRange('month'))
 
   function entryRepo() {
     return new CashflowEntryRepository(getDb())
@@ -37,25 +40,21 @@ export const useCashflowStore = defineStore('cashflow', () => {
     return categories.value.filter((c) => c.type === type)
   }
 
-  // Ringkasan bulan berjalan.
-  const monthSummary = computed(() => {
-    const key = monthKey(nowMs())
+  // Ringkasan rentang aktif (entries sudah ter-filter rentang).
+  const summary = computed(() => {
     let income = 0
     let expense = 0
     for (const e of entries.value) {
-      if (monthKey(e.occurred_at) !== key) continue
       if (e.direction === 'debit') income += e.amount
       else expense += e.amount
     }
     return { income, expense, net: income - expense }
   })
 
-  // Total per kategori (bulan berjalan) — buat breakdown.
+  // Total per kategori dalam rentang aktif — buat breakdown.
   const byCategory = computed(() => {
-    const key = monthKey(nowMs())
     const map = new Map<string, { category: CashflowCategory | undefined; total: number }>()
     for (const e of entries.value) {
-      if (monthKey(e.occurred_at) !== key) continue
       const k = e.category_id ?? 'none'
       if (!map.has(k)) map.set(k, { category: category(e.category_id), total: 0 })
       map.get(k)!.total += e.amount
@@ -66,8 +65,13 @@ export const useCashflowStore = defineStore('cashflow', () => {
   async function load() {
     loading.value = true
     categories.value = await catRepo().listAll()
-    entries.value = await entryRepo().listRecent(500)
+    entries.value = await entryRepo().listBetween(range.value.from, range.value.to)
     loading.value = false
+  }
+
+  async function setRange(r: DateRange) {
+    range.value = r
+    await load()
   }
 
   async function createEntry(input: NewEntry): Promise<CashflowEntry> {
@@ -136,8 +140,10 @@ export const useCashflowStore = defineStore('cashflow', () => {
     entries,
     categories,
     loading,
-    monthSummary,
+    range,
+    summary,
     byCategory,
+    setRange,
     category,
     categoryName,
     categoriesOfType,

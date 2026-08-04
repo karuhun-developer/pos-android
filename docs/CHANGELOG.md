@@ -21,6 +21,14 @@ Tiap phase = satu rilis minor.
   `account.createStore/renameStore` → `POST/PATCH /stores`.
 - **Kartu POS Pro** dipindah ke paling atas halaman Setelan.
 
+### Added
+- **Filter tanggal di Transaksi & Cashflow**: komponen `DateRangeFilter` dengan
+  preset **Hari ini / Kemarin / Minggu ini / Bulan ini** + rentang **kustom
+  (dari–sampai)**. Query per rentang lewat `SaleRepository.listBetween` &
+  `CashflowEntryRepository.listBetween`; ringkasan atas (total penjualan / saldo,
+  pemasukan, pengeluaran, per-kategori) ikut mengikuti rentang yang dipilih.
+  Default = bulan berjalan. Helper `src/lib/dateRange.ts` + `startOfDay/endOfDay`.
+
 ### Fixed
 - **Isolasi data antar-outlet**: SQLite lokal single-tenant, jadi saat **pindah
   outlet** data outlet lama tidak lagi ikut tampil. `resetLocalBusinessData()`

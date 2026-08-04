@@ -4,18 +4,22 @@ import { RouterLink, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import DateRangeFilter from '@/components/common/DateRangeFilter.vue'
 import { Button } from '@/components/ui/button'
 import {
   Wallet, Plus, Tag, ArrowDownLeft, ArrowUpRight, Lock,
 } from 'lucide-vue-next'
 import { useCashflowStore } from '@/stores/cashflow'
 import { formatRupiah } from '@/lib/money'
-import { formatTime, formatDate, formatMonth, dayKey, nowMs } from '@/lib/datetime'
+import { formatTime, formatDate, dayKey } from '@/lib/datetime'
+import { rangeLabel } from '@/lib/dateRange'
 import type { CashflowEntry } from '@/db/types'
 
 const router = useRouter()
 const cashflow = useCashflowStore()
-const { entries, monthSummary, byCategory } = storeToRefs(cashflow)
+const { entries, summary, byCategory, range } = storeToRefs(cashflow)
+
+const label = computed(() => rangeLabel(range.value))
 
 // Kelompokkan entri per hari.
 const groups = computed(() => {
@@ -43,7 +47,7 @@ function openEntry(e: CashflowEntry) {
 
 <template>
   <div>
-    <AppHeader title="Cashflow" :subtitle="formatMonth(nowMs())">
+    <AppHeader title="Cashflow" :subtitle="label">
       <template #actions>
         <RouterLink to="/cashflow/categories">
           <Button variant="outline" size="sm" class="gap-1.5" title="Kelola kategori">
@@ -54,22 +58,28 @@ function openEntry(e: CashflowEntry) {
       </template>
     </AppHeader>
 
-    <!-- Ringkasan bulan -->
+    <!-- Filter tanggal -->
+    <DateRangeFilter
+      :model-value="range"
+      @update:model-value="cashflow.setRange($event)"
+    />
+
+    <!-- Ringkasan rentang aktif -->
     <div class="border-b border-border bg-gradient-to-br from-primary to-primary/80 px-5 py-5 text-primary-foreground">
-      <p class="text-xs opacity-80">Saldo bulan ini</p>
-      <p class="mt-1 text-2xl font-bold">{{ formatRupiah(monthSummary.net) }}</p>
+      <p class="text-xs opacity-80">Saldo · {{ label }}</p>
+      <p class="mt-1 text-2xl font-bold">{{ formatRupiah(summary.net) }}</p>
       <div class="mt-3 grid grid-cols-2 gap-3">
         <div class="rounded-xl bg-white/12 p-3 backdrop-blur">
           <div class="flex items-center gap-1 text-xs opacity-90">
             <ArrowDownLeft class="size-3.5" /> Pemasukan
           </div>
-          <p class="mt-0.5 text-sm font-bold">{{ formatRupiah(monthSummary.income) }}</p>
+          <p class="mt-0.5 text-sm font-bold">{{ formatRupiah(summary.income) }}</p>
         </div>
         <div class="rounded-xl bg-white/12 p-3 backdrop-blur">
           <div class="flex items-center gap-1 text-xs opacity-90">
             <ArrowUpRight class="size-3.5" /> Pengeluaran
           </div>
-          <p class="mt-0.5 text-sm font-bold">{{ formatRupiah(monthSummary.expense) }}</p>
+          <p class="mt-0.5 text-sm font-bold">{{ formatRupiah(summary.expense) }}</p>
         </div>
       </div>
     </div>
@@ -77,7 +87,7 @@ function openEntry(e: CashflowEntry) {
     <!-- Breakdown per kategori -->
     <section v-if="byCategory.length" class="border-b border-border p-4">
       <p class="mb-2 px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        Per Kategori (bulan ini)
+        Per Kategori · {{ label }}
       </p>
       <div class="space-y-1.5">
         <div

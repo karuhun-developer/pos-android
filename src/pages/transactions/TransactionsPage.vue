@@ -4,15 +4,19 @@ import { RouterLink } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import DateRangeFilter from '@/components/common/DateRangeFilter.vue'
 import { Badge } from '@/components/ui/badge'
 import { Receipt, ChevronRight } from 'lucide-vue-next'
 import { useSalesStore } from '@/stores/sales'
 import { formatRupiah } from '@/lib/money'
 import { formatTime, formatDate, dayKey } from '@/lib/datetime'
+import { rangeLabel } from '@/lib/dateRange'
 import type { Sale } from '@/db/types'
 
 const sales = useSalesStore()
-const { recent, today } = storeToRefs(sales)
+const { recent, summary, range } = storeToRefs(sales)
+
+const label = computed(() => rangeLabel(range.value))
 
 const PAY_LABEL: Record<string, string> = { cash: 'Tunai', qris: 'QRIS', transfer: 'Transfer' }
 
@@ -37,13 +41,19 @@ onMounted(() => sales.load())
 
 <template>
   <div>
-    <AppHeader title="Transaksi" :subtitle="`Hari ini: ${today.count} transaksi`" />
+    <AppHeader title="Transaksi" :subtitle="`${label}: ${summary.count} transaksi`" />
 
-    <!-- Ringkasan hari ini -->
+    <!-- Filter tanggal -->
+    <DateRangeFilter
+      :model-value="range"
+      @update:model-value="sales.setRange($event)"
+    />
+
+    <!-- Ringkasan rentang aktif -->
     <div class="border-b border-border bg-gradient-to-br from-primary to-primary/80 px-5 py-5 text-primary-foreground">
-      <p class="text-xs opacity-80">Penjualan hari ini</p>
-      <p class="mt-1 text-2xl font-bold">{{ formatRupiah(today.total) }}</p>
-      <p class="mt-0.5 text-xs opacity-80">{{ today.count }} transaksi</p>
+      <p class="text-xs opacity-80">Penjualan · {{ label }}</p>
+      <p class="mt-1 text-2xl font-bold">{{ formatRupiah(summary.total) }}</p>
+      <p class="mt-0.5 text-xs opacity-80">{{ summary.count }} transaksi</p>
     </div>
 
     <template v-if="recent.length">
@@ -83,8 +93,8 @@ onMounted(() => sales.load())
     <EmptyState
       v-else
       :icon="Receipt"
-      title="Belum ada transaksi"
-      description="Transaksi dari menu Kasir (POS) akan muncul di sini."
+      title="Tidak ada transaksi"
+      :description="`Tidak ada transaksi pada rentang ${label.toLowerCase()}. Coba ubah filter tanggal.`"
     />
   </div>
 </template>
