@@ -1,10 +1,19 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import BottomNav from '@/components/layout/BottomNav.vue'
+import SplashScreen from '@/components/layout/SplashScreen.vue'
+import { useSettingsStore } from '@/stores/settings'
 
 const route = useRoute()
 const showNav = computed(() => !route.meta.hideNav)
+
+// Splash in-app: tampil sebentar saat boot bila diaktifkan (default OFF).
+const settings = useSettingsStore()
+const showSplash = ref(settings.splashEnabled)
+onMounted(() => {
+  if (showSplash.value) setTimeout(() => (showSplash.value = false), 1500)
+})
 </script>
 
 <template>
@@ -19,4 +28,17 @@ const showNav = computed(() => !route.meta.hideNav)
     </main>
     <BottomNav v-if="showNav" />
   </div>
+
+  <Transition name="splash">
+    <SplashScreen v-if="showSplash" />
+  </Transition>
 </template>
+
+<style>
+.splash-leave-active {
+  transition: opacity 0.4s ease;
+}
+.splash-leave-to {
+  opacity: 0;
+}
+</style>

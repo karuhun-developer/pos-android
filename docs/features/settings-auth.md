@@ -4,6 +4,11 @@
 
 ## Sudah ada (Phase 0)
 - Profil toko (nama, pemilik) — tampil di header & struk.
+- **Logo toko** — upload lewat tabel `media` (PNG ≤256px), disimpan sebagai ref
+  `media://<id>` di `settings.store_logo`. Tampil **live** di header Home & splash
+  begitu diganti (berbagi cache `mediaStore` singleton).
+- **Splash screen** — toggle **default OFF** (`settings.splash_enabled`) + pilih
+  latar `brand`/`light`/`dark` (`settings.splash_bg`, default `brand`).
 - **Toggle "Aktifkan Login"** — **default OFF** (tanpa login).
 - Toggle mode gelap. Info device ID + versi.
 - Kartu **POS Pro** (placeholder, disabled).
@@ -15,7 +20,7 @@
 
 ## Data & Aturan
 - Tabel `settings` (key-value): `login_enabled`, `pin_hash`, `store_name`,
-  `store_owner`, `device_id`, `theme`.
+  `store_owner`, `store_logo`, `splash_enabled`, `splash_bg`, `device_id`, `theme`.
 - `device_id` dibuat sekali (prefix nomor struk).
 - Login **tidak** memblokir apa pun saat default OFF.
 

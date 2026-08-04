@@ -8,22 +8,53 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
-import { Store, Lock, Moon, Cloud, Smartphone, Save } from 'lucide-vue-next'
-import { useSettingsStore } from '@/stores/settings'
+import {
+  Store, Lock, Moon, Cloud, Smartphone, Save, ImagePlus, Sparkles, Check,
+} from 'lucide-vue-next'
+import { useSettingsStore, type SplashBg } from '@/stores/settings'
+import { useMediaStore } from '@/stores/media'
+import { pickImage, downscale } from '@/lib/image'
 
 const settings = useSettingsStore()
-const { storeName, storeOwner, loginEnabled, theme, deviceId } =
-  storeToRefs(settings)
+const media = useMediaStore()
+const { storeName, storeOwner, storeLogo, loginEnabled, theme, deviceId,
+  splashEnabled, splashBg } = storeToRefs(settings)
 
 const name = ref('')
 const owner = ref('')
 const savingProfile = ref(false)
 const savedFlash = ref(false)
+const logoBusy = ref(false)
+
+const SPLASH_BGS: Array<{ id: SplashBg; label: string; swatch: string }> = [
+  { id: 'brand', label: 'Brand', swatch: 'bg-gradient-to-b from-primary to-primary/70' },
+  { id: 'light', label: 'Terang', swatch: 'bg-background border border-border' },
+  { id: 'dark', label: 'Gelap', swatch: 'bg-slate-900' },
+]
 
 onMounted(() => {
   name.value = storeName.value
   owner.value = storeOwner.value
+  if (storeLogo.value) media.ensure([storeLogo.value])
 })
+
+async function chooseLogo() {
+  const dataUrl = await pickImage()
+  if (!dataUrl) return
+  logoBusy.value = true
+  try {
+    // PNG biar transparansi logo kejaga; ukuran kecil (256px).
+    const img = await downscale(dataUrl, { maxDim: 256, mime: 'image/png' })
+    const ref_ = await media.save(img)
+    await settings.setLogo(ref_) // langsung ke-update di Home & splash
+  } finally {
+    logoBusy.value = false
+  }
+}
+
+async function removeLogo() {
+  await settings.setLogo(null)
+}
 
 async function saveProfile() {
   savingProfile.value = true
@@ -49,13 +80,30 @@ async function onToggleLogin(v: boolean) {
         </p>
         <Card>
           <CardContent class="space-y-4 p-4">
-            <div class="flex items-center gap-3">
-              <div class="flex size-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                <Store class="size-5" />
+            <!-- Logo toko -->
+            <div class="flex items-center gap-4">
+              <div class="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-primary/10 text-primary">
+                <img
+                  v-if="media.url(storeLogo)"
+                  :src="media.url(storeLogo)!"
+                  alt="Logo toko"
+                  class="size-full object-contain p-1"
+                />
+                <Store v-else class="size-6" />
               </div>
-              <p class="text-sm text-muted-foreground">
-                Nama ini tampil di header & struk.
-              </p>
+              <div class="space-y-1.5">
+                <p class="text-sm font-medium">Logo Toko</p>
+                <p class="text-xs text-muted-foreground">Tampil di home & splash screen.</p>
+                <div class="flex items-center gap-2 pt-0.5">
+                  <Button type="button" variant="outline" size="sm" class="gap-1.5" :disabled="logoBusy" @click="chooseLogo">
+                    <ImagePlus class="size-3.5" />
+                    {{ media.url(storeLogo) ? 'Ganti' : 'Tambah' }}
+                  </Button>
+                  <Button v-if="media.url(storeLogo)" type="button" variant="ghost" size="sm" class="text-destructive" @click="removeLogo">
+                    Hapus
+                  </Button>
+                </div>
+              </div>
             </div>
             <div class="space-y-1.5">
               <Label for="store-name">Nama Toko</Label>
@@ -101,6 +149,46 @@ async function onToggleLogin(v: boolean) {
                 <p class="text-xs text-muted-foreground">Tampilan gelap</p>
               </div>
               <Switch :model-value="theme === 'dark'" @update:model-value="settings.toggleTheme()" />
+            </div>
+          </CardContent>
+        </Card>
+      </section>
+
+      <!-- Tampilan / Splash -->
+      <section class="space-y-3">
+        <p class="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Splash Screen
+        </p>
+        <Card>
+          <CardContent class="space-y-4 p-4">
+            <div class="flex items-center gap-3">
+              <div class="flex size-10 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+                <Sparkles class="size-5" />
+              </div>
+              <div class="flex-1">
+                <p class="text-sm font-medium">Tampilkan Splash</p>
+                <p class="text-xs text-muted-foreground">Layar pembuka logo saat app dibuka.</p>
+              </div>
+              <Switch :model-value="splashEnabled" @update:model-value="settings.setSplash({ enabled: $event })" />
+            </div>
+
+            <div v-if="splashEnabled" class="space-y-2">
+              <p class="text-xs font-medium text-muted-foreground">Latar</p>
+              <div class="grid grid-cols-3 gap-2">
+                <button
+                  v-for="bg in SPLASH_BGS"
+                  :key="bg.id"
+                  type="button"
+                  class="relative overflow-hidden rounded-xl border p-1 transition"
+                  :class="splashBg === bg.id ? 'border-primary ring-2 ring-primary/30' : 'border-border'"
+                  @click="settings.setSplash({ bg: bg.id })"
+                >
+                  <span class="flex h-12 items-center justify-center rounded-lg" :class="bg.swatch">
+                    <Check v-if="splashBg === bg.id" class="size-4 text-white drop-shadow" />
+                  </span>
+                  <span class="mt-1 block text-center text-xs">{{ bg.label }}</span>
+                </button>
+              </div>
             </div>
           </CardContent>
         </Card>

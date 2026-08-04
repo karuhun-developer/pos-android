@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
 import {
   ShoppingCart,
@@ -13,9 +14,15 @@ import {
 } from 'lucide-vue-next'
 import { storeToRefs } from 'pinia'
 import { useSettingsStore } from '@/stores/settings'
+import { useMediaStore } from '@/stores/media'
 
 const settings = useSettingsStore()
-const { storeName, storeOwner } = storeToRefs(settings)
+const media = useMediaStore()
+const { storeName, storeOwner, storeLogo } = storeToRefs(settings)
+
+onMounted(() => {
+  if (storeLogo.value) media.ensure([storeLogo.value])
+})
 
 const menu = [
   { to: '/pos', label: 'Point of Sale', desc: 'Mulai transaksi', icon: ShoppingCart, tint: 'bg-primary/10 text-primary' },
@@ -33,8 +40,14 @@ const menu = [
     <!-- Header profil toko -->
     <div class="px-5 pb-8 pt-[max(1.5rem,env(safe-area-inset-top))] text-primary-foreground">
       <div class="flex items-center gap-3">
-        <div class="flex size-12 items-center justify-center rounded-2xl bg-white/15">
-          <Store class="size-6" />
+        <div class="flex size-12 items-center justify-center overflow-hidden rounded-2xl bg-white/15">
+          <img
+            v-if="media.url(storeLogo)"
+            :src="media.url(storeLogo)!"
+            alt="Logo toko"
+            class="size-full object-contain p-1"
+          />
+          <Store v-else class="size-6" />
         </div>
         <div class="min-w-0">
           <p class="truncate text-lg font-bold leading-tight">{{ storeName }}</p>

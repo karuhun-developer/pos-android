@@ -19,6 +19,18 @@ Tiap phase = satu rilis minor.
 - Smoke test diperluas: upload foto, verifikasi `media` + `outbox` media insert, dan
   bukti edit harga tidak menyeret base64 ke payload / tidak menambah media.
 
+### Added — Logo toko & splash screen
+- **Logo toko** dapat di-set di Profil Toko (setelan). Disimpan lewat tabel `media`
+  yang sama (PNG ≤256px agar transparansi terjaga), `settings.store_logo` menyimpan
+  ref `media://<id>`.
+- Logo tampil **live** di header Home & splash begitu diganti — Home, Setelan, dan
+  splash berbagi cache `mediaStore` singleton, jadi update ref langsung ter-render.
+- **Splash screen in-app** (`SplashScreen.vue`) tampil ~1.5s saat boot lalu fade-out;
+  bukan splash native (itu Phase 7). **Default mati**, bisa diaktifkan & pilih latar:
+  **Brand** (gradient primary, default), **Terang**, atau **Gelap**.
+- Setelan baru: `settings.splash_enabled` (default OFF) & `settings.splash_bg`
+  (default `brand`).
+
 ### Direncanakan
 - Phase 2: Point of Sale + checkout (cart, pembayaran, struk, auto-cashflow).
 - Phase 3: Buka/Tutup kasir (sesi, modal awal, hitung akhir, selisih).

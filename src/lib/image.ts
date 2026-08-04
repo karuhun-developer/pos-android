@@ -64,15 +64,23 @@ function pickImageWeb(): Promise<string | null> {
   })
 }
 
+export interface DownscaleOptions {
+  maxDim?: number
+  quality?: number
+  /** Output mime — pakai 'image/png' buat logo agar transparansi kejaga. */
+  mime?: 'image/jpeg' | 'image/png'
+}
+
 /**
- * Downscale + kompres ke JPEG kecil lewat <canvas>.
- * Jaga aspect ratio, sisi terpanjang ≤ maxDim. Output base64 tanpa prefix.
+ * Downscale + kompres lewat <canvas>. Jaga aspect ratio, sisi terpanjang ≤ maxDim.
+ * Default JPEG (foto produk). Untuk logo pakai `mime: 'image/png'` (transparan).
+ * Output base64 tanpa prefix.
  */
 export function downscale(
   dataUrl: string,
-  maxDim = 512,
-  quality = 0.7,
+  opts: DownscaleOptions = {},
 ): Promise<ProcessedImage> {
+  const { maxDim = 512, quality = 0.7, mime = 'image/jpeg' } = opts
   return new Promise((resolve, reject) => {
     const img = new Image()
     img.onload = () => {
@@ -88,7 +96,6 @@ export function downscale(
       if (!ctx) return reject(new Error('canvas 2d context tidak tersedia'))
       ctx.drawImage(img, 0, 0, outW, outH)
 
-      const mime = 'image/jpeg'
       const out = canvas.toDataURL(mime, quality)
       const data = stripDataUrlPrefix(out)
       resolve({
