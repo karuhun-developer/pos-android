@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import { Card, CardContent } from '@/components/ui/card'
@@ -8,18 +9,23 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
+import BottomSheet from '@/components/common/BottomSheet.vue'
+import PinPad from '@/components/common/PinPad.vue'
 import {
   Store, Lock, Moon, Cloud, Smartphone, Save, ImagePlus, Sparkles, Check,
-  QrCode, Loader2,
+  QrCode, Loader2, KeyRound, LockKeyhole,
 } from 'lucide-vue-next'
 import { useSettingsStore, type SplashBg } from '@/stores/settings'
 import { useMediaStore } from '@/stores/media'
+import { useAuthStore } from '@/stores/auth'
 import { pickImage, downscale } from '@/lib/image'
 import { decodeQrFromDataUrl, encodeQrToDataUrl, isValidQris } from '@/lib/qris'
 
 const settings = useSettingsStore()
 const media = useMediaStore()
-const { storeName, storeOwner, storeLogo, loginEnabled, theme, deviceId,
+const auth = useAuthStore()
+const router = useRouter()
+const { storeName, storeOwner, storeLogo, loginEnabled, hasPin, theme, deviceId,
   splashEnabled, splashBg, qrisPayload, qrisDynamic } = storeToRefs(settings)
 
 const name = ref('')
@@ -102,8 +108,61 @@ async function saveProfile() {
   setTimeout(() => (savedFlash.value = false), 1500)
 }
 
+// --- Kunci PIN (Phase 5) ---
+const pinSheetOpen = ref(false)
+const pinMode = ref<'set' | 'change'>('set') // 'set' = sekalian aktifkan login
+const pinStep = ref<'enter' | 'confirm'>('enter')
+const pinValue = ref('')
+const pinFirst = ref('')
+const pinError = ref(false)
+
+const PIN_LEN = 6
+
+function openPinSheet(mode: 'set' | 'change') {
+  pinMode.value = mode
+  pinStep.value = 'enter'
+  pinValue.value = ''
+  pinFirst.value = ''
+  pinError.value = false
+  pinSheetOpen.value = true
+}
+
 async function onToggleLogin(v: boolean) {
-  await settings.setLoginEnabled(v)
+  if (v) {
+    // Nyalakan login butuh PIN dulu — login baru aktif setelah PIN dibuat.
+    if (hasPin.value) await settings.setLoginEnabled(true)
+    else openPinSheet('set')
+  } else {
+    await auth.disableLogin() // matikan + bersihkan PIN
+  }
+}
+
+async function onPinComplete(value: string) {
+  if (pinStep.value === 'enter') {
+    pinFirst.value = value
+    pinValue.value = ''
+    pinStep.value = 'confirm'
+    return
+  }
+  // Tahap konfirmasi.
+  if (value !== pinFirst.value) {
+    pinError.value = true
+    setTimeout(() => {
+      pinValue.value = ''
+      pinFirst.value = ''
+      pinStep.value = 'enter'
+      pinError.value = false
+    }, 600)
+    return
+  }
+  await auth.setPin(value)
+  if (pinMode.value === 'set') await auth.enableLogin()
+  pinSheetOpen.value = false
+}
+
+function lockNow() {
+  auth.lock()
+  router.push('/lock')
 }
 </script>
 
@@ -230,11 +289,39 @@ async function onToggleLogin(v: boolean) {
               <div class="flex-1">
                 <p class="text-sm font-medium">Aktifkan Login</p>
                 <p class="text-xs text-muted-foreground">
-                  Default nonaktif. Kunci app dengan PIN (Phase 5).
+                  Default nonaktif. Kunci app dengan PIN 6 digit.
                 </p>
               </div>
               <Switch :model-value="loginEnabled" @update:model-value="onToggleLogin" />
             </div>
+            <button
+              v-if="loginEnabled && hasPin"
+              type="button"
+              class="flex w-full items-center gap-3 p-4 text-left transition active:bg-accent"
+              @click="openPinSheet('change')"
+            >
+              <div class="flex size-10 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+                <KeyRound class="size-5" />
+              </div>
+              <div class="flex-1">
+                <p class="text-sm font-medium">Ubah PIN</p>
+                <p class="text-xs text-muted-foreground">Ganti PIN 6 digit</p>
+              </div>
+            </button>
+            <button
+              v-if="loginEnabled && hasPin"
+              type="button"
+              class="flex w-full items-center gap-3 p-4 text-left transition active:bg-accent"
+              @click="lockNow"
+            >
+              <div class="flex size-10 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+                <LockKeyhole class="size-5" />
+              </div>
+              <div class="flex-1">
+                <p class="text-sm font-medium">Kunci Sekarang</p>
+                <p class="text-xs text-muted-foreground">Kembali ke layar PIN</p>
+              </div>
+            </button>
             <div class="flex items-center gap-3 p-4">
               <div class="flex size-10 items-center justify-center rounded-xl bg-muted text-muted-foreground">
                 <Moon class="size-5" />
@@ -321,5 +408,24 @@ async function onToggleLogin(v: boolean) {
         Device ID: {{ deviceId }} · POS Kacaw v0.1
       </div>
     </div>
+
+    <!-- Sheet buat/ubah PIN -->
+    <BottomSheet
+      :open="pinSheetOpen"
+      :title="pinMode === 'change' ? 'Ubah PIN' : 'Buat PIN'"
+      @update:open="pinSheetOpen = $event"
+    >
+      <div class="flex flex-col items-center gap-8 px-5 pb-8 pt-4">
+        <p class="text-sm text-muted-foreground">
+          {{ pinError ? 'PIN tidak cocok, ulangi' : pinStep === 'enter' ? 'Masukkan PIN 6 digit baru' : 'Ulangi PIN untuk konfirmasi' }}
+        </p>
+        <PinPad
+          v-model="pinValue"
+          :length="PIN_LEN"
+          :error="pinError"
+          @complete="onPinComplete"
+        />
+      </div>
+    </BottomSheet>
   </div>
 </template>

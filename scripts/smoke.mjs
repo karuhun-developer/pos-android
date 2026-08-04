@@ -271,6 +271,58 @@ try {
     throw new Error('soft delete gagal set deleted_at')
   log('Soft delete OK — deleted_at terisi, row tetap ada buat sync')
 
+  // 9) Kunci PIN (Phase 5) — aktifkan login + set PIN, reload → terkunci.
+  const tap = async (seq) => {
+    for (const d of seq)
+      await page.getByRole('button', { name: d, exact: true }).click()
+  }
+  const loginSwitch = () =>
+    page
+      .getByText('Aktifkan Login')
+      .locator('xpath=ancestor::div[contains(@class,"items-center")][1]')
+      .getByRole('switch')
+
+  await page.goto(BASE + '/settings', { waitUntil: 'networkidle' })
+  await loginSwitch().click() // buka sheet PIN (login belum aktif sampai PIN dibuat)
+  await page.getByText('Masukkan PIN 6 digit baru').waitFor({ timeout: 8000 })
+  await tap('123456') // tahap enter
+  await page.getByText('Ulangi PIN untuk konfirmasi').waitFor({ timeout: 8000 })
+  await tap('123456') // tahap konfirmasi → simpan + aktifkan login
+  await page
+    .getByText('Ulangi PIN untuk konfirmasi')
+    .waitFor({ state: 'hidden', timeout: 8000 })
+  const le = await q("SELECT value FROM settings WHERE key='login_enabled'")
+  const ph = await q("SELECT value FROM settings WHERE key='pin_hash'")
+  if (le[0]?.value !== '1') throw new Error('login_enabled != 1')
+  if (!ph[0]?.value || !ph[0].value.includes(':'))
+    throw new Error('pin_hash tidak tersimpan bergaram')
+  log('PIN diset ✔ — login aktif, pin_hash bergaram tersimpan')
+
+  // reload di /settings → guard paksa ke /lock?redirect=/settings
+  const path = () => new URL(page.url()).pathname
+  await page.reload({ waitUntil: 'networkidle' })
+  await page.getByText('Masukkan PIN untuk membuka').waitFor({ timeout: 8000 })
+  if (path() !== '/lock') throw new Error('tidak diarahkan ke /lock: ' + page.url())
+  // PIN salah → tetap terkunci
+  await tap('000000')
+  await page.waitForTimeout(700) // biarkan verifikasi + reset PIN selesai
+  if (path() !== '/lock') throw new Error('PIN salah tapi lolos kunci')
+  // PIN benar → app kebuka + balik ke tujuan semula (/settings)
+  await tap('123456')
+  await page.getByText('Akun & Setelan').waitFor({ timeout: 8000 })
+  if (path() !== '/settings')
+    throw new Error('redirect setelah unlock gagal: ' + page.url())
+  log('Lock screen ✔ — PIN salah ditolak, PIN benar membuka + balik ke tujuan')
+
+  // Bersihkan: matikan login lagi supaya run berikutnya boot normal.
+  await loginSwitch().click()
+  await page.waitForTimeout(400)
+  const off = await q("SELECT value FROM settings WHERE key='login_enabled'")
+  const phOff = await q("SELECT value FROM settings WHERE key='pin_hash'")
+  if (off[0]?.value !== '0') throw new Error('gagal matikan login')
+  if (phOff[0]?.value) throw new Error('pin_hash tidak dibersihkan saat login off')
+  log('Matikan login ✔ — login_enabled=0, PIN dibersihkan')
+
   if (errors.length) {
     console.log('\n⚠️  Console errors:')
     errors.forEach((e) => console.log('  -', e))

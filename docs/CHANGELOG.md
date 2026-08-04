@@ -5,6 +5,23 @@ Tiap phase = satu rilis minor.
 
 ## [Unreleased]
 
+### Added — Phase 5: Login lokal & Kunci PIN
+- **Kunci PIN app** (default OFF): toggle "Aktifkan Login" di Setelan membuka
+  sheet buat PIN 6 digit (enter → konfirmasi); login aktif setelah PIN tersimpan.
+- **PIN bergaram** (`src/lib/crypto.ts`): `makePinHash`/`verifyPin` — SHA-256 via
+  Web Crypto, salt 16 byte acak, disimpan `"<saltHex>:<hashHex>"` di
+  `settings.pin_hash` (tak pernah plaintext).
+- **`stores/auth.ts`**: `isLocked` (login on + PIN ada + belum unlock), `verify`,
+  `setPin`, `enableLogin`, `disableLogin` (bersihkan PIN), `lock`.
+- **LockPage** (`/lock`) + **router guard** `beforeEach`: app terkunci → semua
+  rute dialihkan ke `/lock` (simpan tujuan di `?redirect=`), PIN benar kembali ke
+  tujuan; reload = terkunci lagi (status unlock hidup di memori).
+- **PinPad** (`components/common/PinPad.vue`): titik PIN + keypad numerik, animasi
+  shake saat salah; dipakai LockPage & sheet PIN.
+- Setelan Keamanan: **Ubah PIN** & **Kunci Sekarang** saat login aktif.
+- Smoke test diperluas: aktifkan login → set PIN → reload terkunci → PIN salah
+  ditolak → PIN benar buka + balik ke tujuan → matikan login (bersih).
+
 ### Added — Phase 4: Cashflow Ledger
 - **CashflowPage**: ringkasan saldo bulan berjalan (pemasukan/pengeluaran/net),
   breakdown per kategori, ledger dikelompokkan per hari dengan net harian.
@@ -92,7 +109,6 @@ Tiap phase = satu rilis minor.
   (default `brand`).
 
 ### Direncanakan
-- Phase 5: Login lokal + PIN (default OFF), lock screen.
 - Phase 6: Aktivasi kontrak sync POS Pro (REST/JWT) + plugin printer thermal.
 
 ## [0.1.0] — Phase 0 & 1

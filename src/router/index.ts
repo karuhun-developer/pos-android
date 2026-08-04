@@ -1,7 +1,16 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 
 const routes: RouteRecordRaw[] = [
   { path: '/', name: 'home', component: () => import('@/pages/HomePage.vue') },
+
+  // Kunci app (Phase 5) — hanya tampil bila login aktif + PIN terpasang.
+  {
+    path: '/lock',
+    name: 'lock',
+    component: () => import('@/pages/settings/LockPage.vue'),
+    meta: { hideNav: true },
+  },
 
   // Produk (Phase 1)
   {
@@ -95,4 +104,19 @@ export const router = createRouter({
   scrollBehavior() {
     return { top: 0 }
   },
+})
+
+// Guard kunci lokal: kalau app terkunci, paksa ke /lock (simpan tujuan asli).
+// Sebaliknya, /lock tak berguna saat tidak terkunci → lempar ke home.
+router.beforeEach((to) => {
+  const auth = useAuthStore()
+  if (auth.isLocked && to.name !== 'lock') {
+    return {
+      name: 'lock',
+      query: to.fullPath !== '/' ? { redirect: to.fullPath } : undefined,
+    }
+  }
+  if (!auth.isLocked && to.name === 'lock') {
+    return { path: '/' }
+  }
 })

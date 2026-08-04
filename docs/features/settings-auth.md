@@ -1,6 +1,6 @@
 # Fitur: Akun & Setelan (Login lokal)
 
-**Status:** 🟡 Sebagian (Phase 0/5) · **Route:** `/settings`, `/settings/lock`
+**Status:** ✅ Selesai (Phase 0 + 5) · **Route:** `/settings`, `/lock`
 
 ## Sudah ada (Phase 0)
 - Profil toko (nama, pemilik) — tampil di header & struk.
@@ -30,10 +30,20 @@ Algoritma (`src/lib/qris.ts`, adaptasi verssache/qris-dinamis):
 Menghapus QRIS statis otomatis mematikan mode dinamis. Nominal = INTEGER
 rupiah bulat (tanpa desimal, konsisten dgn `sale.total`).
 
-## Direncanakan (Phase 5)
-- Set/ubah **PIN** (disimpan sebagai hash salted SHA-256, tak pernah plaintext).
-- **LockPage** + router guard: jika `login_enabled=1` & app terkunci → `/settings/lock`.
-- Auto-lock saat app kembali ke foreground (opsional).
+## Login lokal / Kunci PIN (Phase 5)
+- **Aktifkan Login** (default OFF): menyalakan toggle membuka sheet **Buat PIN**
+  (6 digit, masukкан → konfirmasi). Login baru benar-benar aktif setelah PIN
+  tersimpan. Mematikan toggle sekalian **membersihkan** `pin_hash`.
+- **PIN** disimpan sebagai hash bergaram `"<saltHex>:<hashHex>"` (SHA-256 via
+  Web Crypto) di `settings.pin_hash` — **tak pernah plaintext**. Salt 16 byte
+  acak per-PIN (`crypto.getRandomValues`). Lihat `src/lib/crypto.ts`.
+- **LockPage** (`/lock`) + router guard (`router.beforeEach`): saat
+  `login_enabled=1` **dan** `pin_hash` terisi **dan** sesi belum dibuka →
+  semua rute dialihkan ke `/lock` (menyimpan tujuan asli di `?redirect=`).
+  PIN benar → buka kunci & kembali ke tujuan; PIN salah → shake + reset.
+- **Ubah PIN** & **Kunci Sekarang** tersedia di bagian Keamanan saat login aktif.
+- Status terkunci hidup di memori (`authStore.unlocked`) → **reload = terkunci
+  lagi**. Tidak ada kaitan dengan sync/cloud (itu ranah `AuthProvider`).
 
 ## Data & Aturan
 - Tabel `settings` (key-value): `login_enabled`, `pin_hash`, `store_name`,
@@ -43,5 +53,8 @@ rupiah bulat (tanpa desimal, konsisten dgn `sale.total`).
 - Login **tidak** memblokir apa pun saat default OFF.
 
 ## Kode
-- `src/stores/settings.ts`, `src/stores/auth.ts` (Phase 5)
-- `src/pages/settings/SettingsPage.vue`, `LockPage.vue` (Phase 5)
+- `src/stores/settings.ts`, `src/stores/auth.ts`
+- `src/lib/crypto.ts` — `makePinHash`/`verifyPin` (SHA-256 bergaram).
+- `src/pages/settings/SettingsPage.vue`, `src/pages/settings/LockPage.vue`
+- `src/components/common/PinPad.vue` — dots + keypad numerik (dipakai LockPage & sheet PIN).
+- `src/router/index.ts` — route `/lock` + guard `beforeEach`.
