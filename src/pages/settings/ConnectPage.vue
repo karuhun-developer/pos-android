@@ -77,8 +77,10 @@ async function onLogout() {
 }
 
 async function onPickStore(id: string) {
-  await account.setCurrentStore(id)
-  await sync.syncNow()
+  if (id === currentStoreId.value) return
+  await sync.syncNow() // 1. push perubahan outlet lama dulu (sebelum data lokal di-reset)
+  await account.setCurrentStore(id) // 2. pindah outlet + buang data lokal outlet lama
+  await sync.syncNow() // 3. tarik ulang data outlet baru dari nol
 }
 
 // --- Kelola outlet ---
@@ -89,6 +91,7 @@ const editName = ref('')
 
 async function onAddStore() {
   if (!newStoreName.value.trim()) return
+  await sync.syncNow() // flush data outlet aktif dulu — createStore pindah outlet & reset lokal
   if (await account.createStore(newStoreName.value.trim())) {
     newStoreName.value = ''
     showAddStore.value = false

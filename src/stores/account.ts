@@ -1,8 +1,10 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { getDb } from '@/db/sqlite'
+import { resetLocalBusinessData } from '@/db/reset'
 import { SettingsRepository } from '@/repositories/settings.repo'
 import { useSettingsStore } from '@/stores/settings'
+import { useMediaStore } from '@/stores/media'
 import {
   ApiClient,
   ApiError,
@@ -113,7 +115,17 @@ export const useAccountStore = defineStore('account', () => {
     return withLogin(async () => api.loginGoogle(await signInWithGoogle()))
   }
 
+  /**
+   * Pindah outlet aktif. Karena SQLite lokal single-tenant, data outlet lama
+   * dibuang (`resetLocalBusinessData`) + cache media dikosongkan supaya tidak
+   * bocor ke outlet baru; siklus sync berikutnya menarik ulang data outlet baru
+   * dari nol. Antrean outbox pending sebaiknya sudah di-push sebelum ini
+   * (ConnectPage memanggil `sync.syncNow()` dulu).
+   */
   async function setCurrentStore(id: string): Promise<void> {
+    if (id === currentStoreId.value) return
+    await resetLocalBusinessData()
+    useMediaStore().clear()
     currentStoreId.value = id
     await repo().set(KEYS.storeId, id)
   }

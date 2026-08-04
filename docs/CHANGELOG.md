@@ -20,6 +20,15 @@ Tiap phase = satu rilis minor.
   & **ganti nama outlet** (khusus owner) + pilih outlet aktif —
   `account.createStore/renameStore` → `POST/PATCH /stores`.
 - **Kartu POS Pro** dipindah ke paling atas halaman Setelan.
+
+### Fixed
+- **Isolasi data antar-outlet**: SQLite lokal single-tenant, jadi saat **pindah
+  outlet** data outlet lama tidak lagi ikut tampil. `resetLocalBusinessData()`
+  (`src/db/reset.ts`) membuang 8 tabel bisnis + outbox + `sync_state`, cache media
+  in-memory dikosongkan (`media.clear()`), lalu sync menarik ulang data outlet
+  baru dari nol. `settings` (device-local) dipertahankan. `ConnectPage` push
+  antrean outlet lama dulu sebelum reset supaya perubahan tak hilang. Scoping
+  `store_id` di server tetap lewat header `X-Store-Id` tiap push/pull.
 - **`device_id` = UUID v7** (timestamp-ordered, unik) via `deviceUuid()`; prefix
   struk pendek diturunkan dari ekor acak (`devicePrefixOf`). Id lama <36 char
   di-upgrade otomatis.

@@ -88,5 +88,11 @@ export const useMediaStore = defineStore('media', () => {
     return `${REF_PREFIX}${row.id}`
   }
 
-  return { ensure, url, save }
+  /** Kosongkan cache in-memory — dipakai saat pindah outlet (data lokal di-reset). */
+  function clear() {
+    cache.value.clear()
+    version.value++
+  }
+
+  return { ensure, url, save, clear }
 })
