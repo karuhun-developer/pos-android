@@ -5,6 +5,20 @@ Tiap phase = satu rilis minor.
 
 ## [Unreleased]
 
+### Added — Phase 3: Buka/Tutup Kasir
+- **Sesi kasir** (`cashier_sessions`): buka dengan modal awal, tutup dengan
+  menghitung uang fisik vs perkiraan laci.
+- `CashierService.open` (tolak bila masih ada sesi terbuka) / `close` (kunci
+  `expected_cash`, simpan `counted_cash` + `difference`).
+- **Expected cash** = modal awal + penjualan tunai (dari `sales`, bukan cashflow,
+  agar QRIS/transfer tak ikut) + kas masuk manual − kas keluar manual; cashflow
+  otomatis `source='sale'` di-skip agar tidak dobel-hitung.
+- **CashierPage**: kartu sesi aktif dengan ringkasan live (transaksi, tunai,
+  perkiraan laci), sheet tutup dengan rincian + selisih live, riwayat sesi.
+- POS **link `session_id`** ke sesi aktif tiap checkout + banner status kasir
+  (buka/tutup + perkiraan laci); penjualan tetap jalan tanpa sesi (opsional).
+- Smoke test diperluas: buka kasir → sale ter-link sesi → tutup dgn selisih.
+
 ### Added — Phase 2: Point of Sale + Checkout
 - **PosPage**: grid produk + pencarian, tambah ke keranjang, sheet keranjang
   (stepper qty, hormati stok bila `track_stock`), bar keranjang ter-pin di bawah.
@@ -62,7 +76,6 @@ Tiap phase = satu rilis minor.
   (default `brand`).
 
 ### Direncanakan
-- Phase 3: Buka/Tutup kasir (sesi, modal awal, hitung akhir, selisih).
 - Phase 4: Cashflow ledger (debit/kredit per kategori, entri manual).
 - Phase 5: Login lokal + PIN (default OFF), lock screen.
 - Phase 6: Aktivasi kontrak sync POS Pro (REST/JWT) + plugin printer thermal.

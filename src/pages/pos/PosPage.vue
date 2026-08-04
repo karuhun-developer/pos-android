@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, RouterLink } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
@@ -9,7 +9,7 @@ import PaymentDialog from '@/components/pos/PaymentDialog.vue'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import {
-  Package, Search, ShoppingCart, Check, Printer, PlusCircle,
+  Package, Search, ShoppingCart, Check, Printer, PlusCircle, DoorOpen, DoorClosed,
 } from 'lucide-vue-next'
 import { useProductsStore } from '@/stores/products'
 import { useCategoriesStore } from '@/stores/categories'
@@ -17,6 +17,7 @@ import { useMediaStore } from '@/stores/media'
 import { useCartStore } from '@/stores/cart'
 import { useSalesStore } from '@/stores/sales'
 import { useSettingsStore } from '@/stores/settings'
+import { useCashierStore } from '@/stores/cashier'
 import { capabilities } from '@/services/capabilities/registry'
 import type { PrinterCapability } from '@/services/capabilities/registry'
 import type { CheckoutResult } from '@/services/checkout.service'
@@ -31,6 +32,7 @@ const media = useMediaStore()
 const cart = useCartStore()
 const sales = useSalesStore()
 const settings = useSettingsStore()
+const cashier = useCashierStore()
 const { filtered, query, categoryFilter } = storeToRefs(products)
 
 const showCart = ref(false)
@@ -40,7 +42,7 @@ const success = ref(false)
 const lastResult = ref<CheckoutResult | null>(null)
 
 onMounted(async () => {
-  await Promise.all([products.load(), categories.load()])
+  await Promise.all([products.load(), categories.load(), cashier.load()])
   await media.ensure(products.items.map((p) => p.image_path))
 })
 
@@ -65,16 +67,17 @@ async function pay({ paid, paymentMethod }: { paid: number; paymentMethod: strin
       paid,
       paymentMethod,
       discount: cart.discount,
-      sessionId: null, // di-link ke sesi kasir di Phase 3
+      sessionId: cashier.current?.id ?? null, // link ke sesi kasir aktif (bila ada)
       devicePrefix: settings.deviceId || 'POS',
     })
     lastResult.value = res
     showPayment.value = false
     showCart.value = false
     cart.clear()
-    // Refresh stok yang berkurang di grid.
+    // Refresh stok yang berkurang di grid + ringkasan laci sesi kasir.
     await products.load()
     await media.ensure(products.items.map((p) => p.image_path))
+    await cashier.refreshSummary()
     success.value = true
   } finally {
     paying.value = false
@@ -131,6 +134,25 @@ function newTransaction() {
         </button>
       </div>
     </div>
+
+    <!-- Status sesi kasir -->
+    <RouterLink
+      v-if="!cashier.isOpen"
+      to="/cashier"
+      class="flex shrink-0 items-center gap-2 border-b border-amber-500/20 bg-amber-500/10 px-4 py-2 text-xs text-amber-700"
+    >
+      <DoorClosed class="size-3.5" />
+      <span class="flex-1">Kasir belum dibuka — transaksi tidak terhitung ke sesi.</span>
+      <span class="font-semibold underline">Buka</span>
+    </RouterLink>
+    <RouterLink
+      v-else
+      to="/cashier"
+      class="flex shrink-0 items-center gap-2 border-b border-emerald-500/20 bg-emerald-500/10 px-4 py-2 text-xs text-emerald-700"
+    >
+      <DoorOpen class="size-3.5" />
+      <span class="flex-1">Kasir terbuka · perkiraan laci {{ formatRupiah(cashier.summary?.expectedCash ?? 0) }}</span>
+    </RouterLink>
 
     <!-- Grid produk (area scroll) -->
     <div class="min-h-0 flex-1 overflow-y-auto">

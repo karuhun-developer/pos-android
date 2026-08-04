@@ -126,6 +126,21 @@ try {
     throw new Error('Edit harga bikin media nambah — harusnya gak nyentuh gambar')
   log(`Edit harga: payload produk ${upd[0].len}B (ringan), media tetap 1 ✔`)
 
+  // 6c-bis) Buka kasir — modal awal 100000, sesi 'open' tersimpan.
+  await page.goto(BASE + '/cashier', { waitUntil: 'networkidle' })
+  await page.getByText('Buka Kasir').first().waitFor({ timeout: 8000 })
+  await page.locator('input[inputmode="numeric"]').first().fill('100000')
+  await page.getByRole('button', { name: /^Buka Kasir$/ }).click()
+  await page.getByText('Kasir Terbuka').waitFor({ timeout: 8000 })
+  const sess = await q(
+    "SELECT id,status,opening_cash FROM cashier_sessions WHERE deleted_at IS NULL ORDER BY opened_at DESC LIMIT 1",
+  )
+  if (!sess.length) throw new Error('Sesi kasir tidak tercatat')
+  if (sess[0].status !== 'open' || sess[0].opening_cash !== 100000)
+    throw new Error(`Sesi buka salah: ${JSON.stringify(sess[0])}`)
+  const sessionId = sess[0].id
+  log(`Buka kasir OK — sesi ${sessionId.slice(0, 8)}…, modal 100000`)
+
   // 6d) POS + Checkout — jual Bolu Coklat, buktikan 1 transaksi atomic
   //     (sales + sale_items + kurangi stok + cashflow) + outbox lengkap.
   await page.goto(BASE + '/products', { waitUntil: 'networkidle' })
@@ -144,13 +159,15 @@ try {
   log('Checkout OK — layar sukses tampil')
 
   const sale = await q(
-    "SELECT number,total,paid,change_due,payment_method,status FROM sales WHERE deleted_at IS NULL ORDER BY sold_at DESC LIMIT 1",
+    "SELECT number,total,paid,change_due,payment_method,status,session_id FROM sales WHERE deleted_at IS NULL ORDER BY sold_at DESC LIMIT 1",
   )
   if (!sale.length) throw new Error('Sale tidak tercatat')
   const s0 = sale[0]
   if (s0.total !== 27000 || s0.paid !== 50000 || s0.change_due !== 23000)
     throw new Error(`Angka sale salah: ${JSON.stringify(s0)}`)
   if (s0.status !== 'completed') throw new Error('status sale bukan completed')
+  if (s0.session_id !== sessionId)
+    throw new Error(`Sale tidak ke-link ke sesi kasir: ${s0.session_id}`)
 
   const si = await q(
     "SELECT name_snapshot,qty,line_total FROM sale_items ORDER BY created_at DESC LIMIT 1",
@@ -175,6 +192,33 @@ try {
     if (!ents.includes(e)) throw new Error(`Outbox tidak mencatat ${e}`)
   log(
     `Checkout atomic ✔ — sale ${s0.number}, item 1, stok 10→9, cashflow +${cf[0].amount}, outbox lengkap`,
+  )
+
+  // 6e) Tutup kasir — expected = modal 100000 + tunai 27000 = 127000.
+  //     Hitung aktual 130000 → selisih +3000 (lebih).
+  await page.goto(BASE + '/cashier', { waitUntil: 'networkidle' })
+  await page.getByText('Kasir Terbuka').waitFor({ timeout: 8000 })
+  await page.getByRole('button', { name: /Tutup Kasir/ }).click()
+  await page.getByText('Uang aktual dihitung').waitFor({ timeout: 8000 })
+  await page.locator('input[inputmode="numeric"]').first().fill('130000')
+  await page.getByRole('button', { name: /Tutup Sesi/ }).click()
+  await page.getByText('Buka Kasir').first().waitFor({ timeout: 8000 }) // form buka balik
+  const closed = await q(
+    "SELECT status,expected_cash,counted_cash,difference FROM cashier_sessions WHERE id='" +
+      sessionId +
+      "'",
+  )
+  const c0 = closed[0]
+  if (
+    !c0 ||
+    c0.status !== 'closed' ||
+    c0.expected_cash !== 127000 ||
+    c0.counted_cash !== 130000 ||
+    c0.difference !== 3000
+  )
+    throw new Error(`Tutup kasir salah: ${JSON.stringify(c0)}`)
+  log(
+    `Tutup kasir ✔ — expected 127000, dihitung 130000, selisih +${c0.difference} (lebih)`,
   )
 
   // 7) Persistensi offline — reload, data harus tetap ada
