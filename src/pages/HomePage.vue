@@ -36,9 +36,11 @@ const menu = [
 </script>
 
 <template>
-  <div class="min-h-full bg-gradient-to-b from-primary to-primary/80 pb-6">
+  <div class="min-h-full bg-background pb-6">
     <!-- Header profil toko -->
-    <div class="px-5 pb-8 pt-[max(1.5rem,env(safe-area-inset-top))] text-primary-foreground">
+    <div
+      class="bg-gradient-to-b from-primary to-primary/80 px-5 pb-12 pt-[max(1.5rem,env(safe-area-inset-top))] text-primary-foreground"
+    >
       <div class="flex items-center gap-3">
         <div class="flex size-12 items-center justify-center overflow-hidden rounded-2xl bg-white/15">
           <img
@@ -76,7 +78,7 @@ const menu = [
     </div>
 
     <!-- Grid menu -->
-    <div class="rounded-t-3xl bg-background px-4 pb-4 pt-5">
+    <div class="relative -mt-6 rounded-t-3xl bg-background px-4 pb-4 pt-5">
       <p class="mb-3 px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         Menu Utama
       </p>
