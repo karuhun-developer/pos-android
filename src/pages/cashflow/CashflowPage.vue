@@ -151,11 +151,11 @@ function openEntry(e: CashflowEntry) {
     />
 
     <!-- FAB tambah -->
-    <Button
-      class="fixed bottom-20 right-4 z-40 size-14 rounded-full shadow-lg"
+    <button
+      class="fixed bottom-20 right-1/2 z-30 flex size-14 translate-x-[min(11.5rem,45vw)] items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition active:scale-95"
       @click="router.push('/cashflow/new')"
     >
       <Plus class="size-6" />
-    </Button>
+    </button>
   </div>
 </template>
