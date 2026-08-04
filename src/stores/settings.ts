@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { getDb } from '@/db/sqlite'
 import { SettingsRepository } from '@/repositories/settings.repo'
-import { shortId } from '@/lib/uuid'
+import { deviceUuid, devicePrefixOf } from '@/lib/uuid'
 
 export type SplashBg = 'brand' | 'light' | 'dark'
 
@@ -35,6 +35,8 @@ export const useSettingsStore = defineStore('settings', () => {
   const qrisDynamic = ref(false) // DEFAULT: off — nominal QRIS di-inject otomatis
 
   const hasPin = computed(() => !!pinHash.value)
+  // Prefix pendek nomor struk, diturunkan dari device UUID (biar struk tetap ringkas).
+  const devicePrefix = computed(() => devicePrefixOf(deviceId.value))
 
   function repo() {
     return new SettingsRepository(getDb())
@@ -55,10 +57,11 @@ export const useSettingsStore = defineStore('settings', () => {
     qrisPayload.value = all[KEYS.qrisPayload] || null
     qrisDynamic.value = all[KEYS.qrisDynamic] === '1'
 
-    // device_id dibuat sekali, dipakai buat prefix nomor struk.
+    // device_id dibuat sekali: UUID v7 (timestamp-based, unik lintas device).
+    // Nilai lama yang pendek (< 36 char, sebelum v0.1 rilis) di-upgrade ke v7.
     deviceId.value = all[KEYS.deviceId] || ''
-    if (!deviceId.value) {
-      deviceId.value = shortId(4)
+    if (!deviceId.value || deviceId.value.length < 36) {
+      deviceId.value = deviceUuid()
       await repo().set(KEYS.deviceId, deviceId.value)
     }
     applyTheme()
@@ -135,6 +138,7 @@ export const useSettingsStore = defineStore('settings', () => {
     qrisPayload,
     qrisDynamic,
     hasPin,
+    devicePrefix,
     load,
     setProfile,
     setLogo,

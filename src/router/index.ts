@@ -12,6 +12,14 @@ const routes: RouteRecordRaw[] = [
     meta: { hideNav: true },
   },
 
+  // Sambungkan ke POS Pro / sync cloud (Phase 6C)
+  {
+    path: '/connect',
+    name: 'connect',
+    component: () => import('@/pages/settings/ConnectPage.vue'),
+    meta: { hideNav: true },
+  },
+
   // Produk (Phase 1)
   {
     path: '/products',

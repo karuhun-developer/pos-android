@@ -1,6 +1,11 @@
 # Fitur: Sync ke POS Pro (Cloud)
 
-**Status:** 🧩 Interface siap, implementasi menyusul (Phase 6) · **Backend:** Generic REST/JWT
+**Status:** 🧩 Kontrak API v1 final + backend POS Pro jalan · adapter FE menyusul (Phase 6C) · **Backend:** POS Pro (Laravel, Sanctum bearer)
+
+> 📄 **Kontrak API:** [`docs/api/pos-pro-api-v1.md`](../api/pos-pro-api-v1.md) —
+> sumber kebenaran endpoint, payload per entity, aturan LWW/tombstone, RBAC, media.
+> Backend-nya sudah dibangun di `/var/www/html/pos-pro`
+> (repo `git@github.com:karuhun-developer/pos-web.git`).
 
 ## Tujuan
 Mengangkat app dari single-device offline menjadi multi-device dengan backup cloud:
@@ -20,10 +25,18 @@ login online (email/Google), lalu sinkronisasi dua arah.
    majukan cursor.
 3. **Trigger:** online kembali (`@capacitor/network`) + timer periodik.
 
-## Yang dikerjakan Phase 6
-- Implementasi `HttpSyncAdapter` + `JwtAuthProvider` (login online/Google).
+## Phase 6 (selesai) — kontrak + backend
+- **Dokumen kontrak API v1** difinalisasi (`docs/api/pos-pro-api-v1.md`).
+- **Backend POS Pro** (Laravel) dibangun penuh: auth Google/Sanctum, sync
+  push/pull 8 entity, tenancy multi-toko, RBAC, media storage, OpenAPI Scramble.
+
+## Phase 6C (menyusul) — adapter FE
+- Implementasi `HttpSyncAdapter` (map ke `/sync/push` & `/sync/pull` kontrak v1) +
+  `GoogleAuthProvider`/`JwtAuthProvider` (bearer token dari `/auth/*`).
 - UI "Sambungkan Akun" + tombol "Sync sekarang" + indikator status di store `sync`.
-- Dokumen kontrak endpoint REST (`/push`, `/pull`, `/auth`).
+- Catatan mapping: `acked`/`rejected` di-key **outbox id**; `pull.cursor` →
+  `sync_state.last_pulled_at`; header `Authorization: Bearer`, `X-Store-Id`,
+  `X-Device-Id`.
 
 ## Kode
 - `src/services/auth/types.ts`, `src/services/sync/types.ts`, `SyncEngine.ts`

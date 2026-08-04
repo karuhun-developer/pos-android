@@ -6,6 +6,8 @@ import { router } from '@/router'
 import { initDb } from '@/db/sqlite'
 import { registerCapabilities } from '@/services/capabilities/bootstrap'
 import { useSettingsStore } from '@/stores/settings'
+import { useAccountStore } from '@/stores/account'
+import { useSyncStore } from '@/stores/sync'
 
 async function bootstrap() {
   // Urutan penting: DB dulu -> capabilities -> pinia -> load settings -> router
@@ -23,6 +25,18 @@ async function bootstrap() {
 
   // Muat setelan (device_id, tema, dll) sebelum UI tampil.
   await useSettingsStore().load()
+
+  // Muat akun cloud (token/toko aktif). Kalau sudah login, hidupkan sync engine.
+  const account = useAccountStore()
+  await account.load()
+  const sync = useSyncStore()
+  await sync.refreshPending()
+  if (account.isAuthenticated) void sync.start()
+
+  if (import.meta.env.DEV) {
+    ;(window as unknown as { __account: typeof account }).__account = account
+    ;(window as unknown as { __sync: typeof sync }).__sync = sync
+  }
 
   app.use(router)
   app.mount('#app')

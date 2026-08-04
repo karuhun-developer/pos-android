@@ -18,14 +18,16 @@ import {
 import { useSettingsStore, type SplashBg } from '@/stores/settings'
 import { useMediaStore } from '@/stores/media'
 import { useAuthStore } from '@/stores/auth'
+import { useAccountStore } from '@/stores/account'
 import { pickImage, downscale } from '@/lib/image'
 import { decodeQrFromDataUrl, encodeQrToDataUrl, isValidQris } from '@/lib/qris'
 
 const settings = useSettingsStore()
 const media = useMediaStore()
 const auth = useAuthStore()
+const account = useAccountStore()
 const router = useRouter()
-const { storeName, storeOwner, storeLogo, loginEnabled, hasPin, theme, deviceId,
+const { storeName, storeOwner, storeLogo, loginEnabled, hasPin, theme, devicePrefix,
   splashEnabled, splashBg, qrisPayload, qrisDynamic } = storeToRefs(settings)
 
 const name = ref('')
@@ -170,6 +172,34 @@ function lockNow() {
   <div>
     <AppHeader title="Akun & Setelan" />
     <div class="space-y-5 p-4">
+      <!-- POS Pro / Cloud (paling atas) -->
+      <section class="space-y-3">
+        <p class="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Cloud
+        </p>
+        <Card class="border-primary/30 bg-primary/5">
+          <CardContent class="space-y-3 p-4">
+            <div class="flex items-center gap-3">
+              <div class="flex size-11 items-center justify-center rounded-xl bg-primary/15 text-primary">
+                <Cloud class="size-5" />
+              </div>
+              <div class="flex-1">
+                <p class="text-sm font-semibold">POS Pro</p>
+                <p class="text-xs text-muted-foreground">
+                  Login online, backup & sync data ke cloud
+                </p>
+              </div>
+              <Badge :variant="account.isAuthenticated ? 'success' : 'secondary'">
+                {{ account.isAuthenticated ? 'Terhubung' : 'Belum' }}
+              </Badge>
+            </div>
+            <Button variant="outline" class="w-full" @click="router.push('/connect')">
+              {{ account.isAuthenticated ? 'Kelola Koneksi' : 'Sambungkan Akun' }}
+            </Button>
+          </CardContent>
+        </Card>
+      </section>
+
       <!-- Profil toko -->
       <section class="space-y-3">
         <p class="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -376,36 +406,10 @@ function lockNow() {
         </Card>
       </section>
 
-      <!-- POS Pro (future) -->
-      <section class="space-y-3">
-        <p class="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Cloud
-        </p>
-        <Card class="border-primary/30 bg-primary/5">
-          <CardContent class="space-y-3 p-4">
-            <div class="flex items-center gap-3">
-              <div class="flex size-11 items-center justify-center rounded-xl bg-primary/15 text-primary">
-                <Cloud class="size-5" />
-              </div>
-              <div class="flex-1">
-                <p class="text-sm font-semibold">POS Pro</p>
-                <p class="text-xs text-muted-foreground">
-                  Login online, backup & sync data ke cloud
-                </p>
-              </div>
-              <Badge variant="secondary">Segera</Badge>
-            </div>
-            <Button variant="outline" class="w-full" disabled>
-              Sambungkan Akun
-            </Button>
-          </CardContent>
-        </Card>
-      </section>
-
       <!-- Info perangkat -->
       <div class="flex items-center justify-center gap-2 pb-2 text-xs text-muted-foreground">
         <Smartphone class="size-3.5" />
-        Device ID: {{ deviceId }} · POS Kacaw v0.1
+        Device: {{ devicePrefix }} · POS Kacaw v0.1
       </div>
     </div>
 

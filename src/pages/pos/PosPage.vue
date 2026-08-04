@@ -68,7 +68,7 @@ async function pay({ paid, paymentMethod }: { paid: number; paymentMethod: strin
       paymentMethod,
       discount: cart.discount,
       sessionId: cashier.current?.id ?? null, // link ke sesi kasir aktif (bila ada)
-      devicePrefix: settings.deviceId || 'POS',
+      devicePrefix: settings.devicePrefix || 'POS',
     })
     lastResult.value = res
     showPayment.value = false

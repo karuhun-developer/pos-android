@@ -5,6 +5,32 @@ Tiap phase = satu rilis minor.
 
 ## [Unreleased]
 
+### Added — Phase 6C: Integrasi FE ↔ POS Pro (sync aktif)
+- **HTTP client** (`src/services/api/`): `ApiClient` (auth/sync/stores/health) +
+  `config.ts` baca `VITE_API_BASE_URL` & `VITE_GOOGLE_CLIENT_ID` dari `.env`.
+- **Store akun** (`stores/account.ts`): token Sanctum + toko aktif (device-local
+  di tabel `settings`), login **email/password**, **register**, Google native, dan
+  ganti toko. **Store sync** (`stores/sync.ts`) + `SyncEngine`: push outbox → pull
+  per-entity (LWW/tombstone, cursor), auto-sync saat online (`@capacitor/network`).
+- **Halaman Sambungkan** (`/connect`, `ConnectPage.vue`): tab **Masuk / Daftar**
+  (register isi nama + konfirmasi sandi), pilih toko, status sync + "Sync sekarang".
+  Base URL diambil dari `.env` (tak ditampilkan). Google Sign-In dibatasi
+  **Android-only** (di web pakai email/password).
+- **Kartu POS Pro** dipindah ke paling atas halaman Setelan.
+- **`device_id` = UUID v7** (timestamp-ordered, unik) via `deviceUuid()`; prefix
+  struk pendek diturunkan dari ekor acak (`devicePrefixOf`). Id lama <36 char
+  di-upgrade otomatis.
+- `.env` / `.env.example`: `VITE_API_BASE_URL` default `http://localhost:8000/api/v1`.
+
+### Added — Phase 6: Kontrak API v1 & backend POS Pro
+- **Kontrak API v1 difinalisasi** (`docs/api/pos-pro-api-v1.md`) — sumber kebenaran
+  FE↔BE: endpoint auth/sync/stores, payload per entity, LWW/tombstone, RBAC, media.
+- **Backend POS Pro** dibangun di `/var/www/html/pos-pro`
+  (repo `git@github.com:karuhun-developer/pos-web.git`): Laravel + Sanctum, sync
+  push/pull, multi-toko, RBAC spatie, media storage, OpenAPI Scramble.
+- `docs/features/sync-pospro.md` diperbarui menunjuk kontrak; adapter FE
+  (`HttpSyncAdapter`/`GoogleAuthProvider` + UI Sync) ditandai **Phase 6C**.
+
 ### Added — Phase 5: Login lokal & Kunci PIN
 - **Kunci PIN app** (default OFF): toggle "Aktifkan Login" di Setelan membuka
   sheet buat PIN 6 digit (enter → konfirmasi); login aktif setelah PIN tersimpan.
