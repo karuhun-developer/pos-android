@@ -118,6 +118,43 @@ export const useAccountStore = defineStore('account', () => {
     await repo().set(KEYS.storeId, id)
   }
 
+  async function persistStores(): Promise<void> {
+    await repo().set(KEYS.stores, JSON.stringify(stores.value))
+  }
+
+  /** Buat outlet baru → jadikan toko aktif. Balik true kalau sukses. */
+  async function createStore(name: string): Promise<boolean> {
+    status.value = 'loading'
+    error.value = null
+    try {
+      const res = await api.createStore(name)
+      stores.value = res.stores
+      await persistStores()
+      await setCurrentStore(String(res.store.id))
+      return true
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : String(e)
+      return false
+    } finally {
+      status.value = 'idle'
+    }
+  }
+
+  /** Ganti nama outlet (khusus owner). Balik true kalau sukses. */
+  async function renameStore(id: string | number, name: string): Promise<boolean> {
+    error.value = null
+    try {
+      const res = await api.renameStore(id, name)
+      const i = stores.value.findIndex((s) => String(s.id) === String(id))
+      if (i !== -1) stores.value[i] = { ...stores.value[i], name: res.store.name }
+      await persistStores()
+      return true
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : String(e)
+      return false
+    }
+  }
+
   async function clearSession(): Promise<void> {
     token.value = null
     user.value = null
@@ -158,6 +195,8 @@ export const useAccountStore = defineStore('account', () => {
     registerEmail,
     loginGoogle,
     setCurrentStore,
+    createStore,
+    renameStore,
     logout,
   }
 })

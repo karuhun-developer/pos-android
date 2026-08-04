@@ -125,6 +125,14 @@ export class ApiClient {
     return this.request('GET', '/stores')
   }
 
+  createStore(name: string): Promise<{ store: AccountStore; stores: AccountStore[] }> {
+    return this.request('POST', '/stores', { name })
+  }
+
+  renameStore(id: string | number, name: string): Promise<{ store: AccountStore }> {
+    return this.request('PATCH', `/stores/${id}`, { name })
+  }
+
   // ── Sync ────────────────────────────────────────────────────────────────
   syncPush(changes: ChangeEnvelope[]): Promise<PushResult> {
     return this.request('POST', '/sync/push', { changes })

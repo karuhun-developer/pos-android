@@ -16,6 +16,9 @@ Tiap phase = satu rilis minor.
   (register isi nama + konfirmasi sandi), pilih toko, status sync + "Sync sekarang".
   Base URL diambil dari `.env` (tak ditampilkan). Google Sign-In dibatasi
   **Android-only** (di web pakai email/password).
+- **Manajemen outlet in-app**: dari halaman Sambungkan bisa **tambah outlet baru**
+  & **ganti nama outlet** (khusus owner) + pilih outlet aktif —
+  `account.createStore/renameStore` → `POST/PATCH /stores`.
 - **Kartu POS Pro** dipindah ke paling atas halaman Setelan.
 - **`device_id` = UUID v7** (timestamp-ordered, unik) via `deviceUuid()`; prefix
   struk pendek diturunkan dari ekor acak (`devicePrefixOf`). Id lama <36 char

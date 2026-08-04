@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { Loader2, RefreshCw, LogOut, Check, AlertCircle } from 'lucide-vue-next'
+import { Loader2, RefreshCw, LogOut, Check, AlertCircle, Plus, Pencil } from 'lucide-vue-next'
 import { Capacitor } from '@capacitor/core'
 import { useAccountStore } from '@/stores/account'
 import { useSyncStore } from '@/stores/sync'
@@ -79,6 +79,31 @@ async function onLogout() {
 async function onPickStore(id: string) {
   await account.setCurrentStore(id)
   await sync.syncNow()
+}
+
+// --- Kelola outlet ---
+const showAddStore = ref(false)
+const newStoreName = ref('')
+const editingId = ref<string | null>(null)
+const editName = ref('')
+
+async function onAddStore() {
+  if (!newStoreName.value.trim()) return
+  if (await account.createStore(newStoreName.value.trim())) {
+    newStoreName.value = ''
+    showAddStore.value = false
+    await sync.syncNow()
+  }
+}
+
+function startRename(s: { id: string | number; name: string }) {
+  editingId.value = String(s.id)
+  editName.value = s.name
+}
+
+async function onRename(s: { id: string | number }) {
+  if (!editName.value.trim()) return
+  if (await account.renameStore(s.id, editName.value.trim())) editingId.value = null
 }
 
 const syncLabel = computed(() => {
@@ -183,27 +208,74 @@ const syncLabel = computed(() => {
           </CardContent>
         </Card>
 
-        <!-- Pilih toko -->
+        <!-- Outlet: pilih aktif, tambah, ganti nama -->
         <section v-if="stores.length" class="space-y-2">
-          <Label>Toko aktif</Label>
+          <div class="flex items-center justify-between">
+            <Label>Outlet</Label>
+            <Button
+              variant="ghost"
+              size="sm"
+              class="h-7 gap-1 text-primary"
+              @click="showAddStore = !showAddStore"
+            >
+              <Plus class="size-4" /> Tambah
+            </Button>
+          </div>
+
+          <!-- Form tambah outlet -->
+          <div v-if="showAddStore" class="flex items-center gap-2">
+            <Input
+              v-model="newStoreName"
+              placeholder="Nama outlet baru"
+              @keyup.enter="onAddStore"
+            />
+            <Button
+              size="sm"
+              :disabled="status === 'loading' || !newStoreName.trim()"
+              @click="onAddStore"
+            >
+              Simpan
+            </Button>
+          </div>
+
           <div class="space-y-2">
-            <button
+            <div
               v-for="s in stores"
               :key="String(s.id)"
-              class="flex w-full items-center justify-between rounded-lg border p-3 text-left text-sm"
+              class="flex items-center gap-2 rounded-lg border p-3 text-sm"
               :class="
-                String(s.id) === currentStoreId
-                  ? 'border-primary bg-primary/10'
-                  : 'border-border'
+                String(s.id) === currentStoreId ? 'border-primary bg-primary/10' : 'border-border'
               "
-              @click="onPickStore(String(s.id))"
             >
-              <span>
-                <span class="font-medium">{{ s.name }}</span>
-                <Badge variant="secondary" class="ml-2">{{ s.role }}</Badge>
-              </span>
-              <Check v-if="String(s.id) === currentStoreId" class="size-4 text-primary" />
-            </button>
+              <!-- Mode ganti nama -->
+              <template v-if="editingId === String(s.id)">
+                <Input v-model="editName" class="h-8 flex-1" @keyup.enter="onRename(s)" />
+                <Button size="sm" class="h-8" @click="onRename(s)">OK</Button>
+                <Button size="sm" variant="ghost" class="h-8" @click="editingId = null">
+                  Batal
+                </Button>
+              </template>
+
+              <!-- Mode normal -->
+              <template v-else>
+                <button
+                  class="flex flex-1 items-center gap-2 text-left"
+                  @click="onPickStore(String(s.id))"
+                >
+                  <span class="font-medium">{{ s.name }}</span>
+                  <Badge variant="secondary">{{ s.role }}</Badge>
+                </button>
+                <Check v-if="String(s.id) === currentStoreId" class="size-4 text-primary" />
+                <button
+                  v-if="s.role === 'owner'"
+                  class="text-muted-foreground transition active:text-foreground"
+                  aria-label="Ganti nama outlet"
+                  @click="startRename(s)"
+                >
+                  <Pencil class="size-4" />
+                </button>
+              </template>
+            </div>
           </div>
         </section>
 
