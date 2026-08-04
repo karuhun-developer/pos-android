@@ -7,14 +7,23 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import MoneyInput from '@/components/common/MoneyInput.vue'
-import { Trash2 } from 'lucide-vue-next'
+import { Trash2, ImagePlus, ImageIcon, Loader2 } from 'lucide-vue-next'
 import { useProductsStore, type ProductInput } from '@/stores/products'
 import { useCategoriesStore } from '@/stores/categories'
+import { useMediaStore } from '@/stores/media'
+import { pickImage, downscale, toDataUrl, type ProcessedImage } from '@/lib/image'
 
 const route = useRoute()
 const router = useRouter()
 const products = useProductsStore()
 const categories = useCategoriesStore()
+const media = useMediaStore()
+
+// Gambar ditahan lokal dulu; row `media` baru dibuat pas save() → gak ada
+// media yatim kalau user batal.
+const pendingImage = ref<ProcessedImage | null>(null)
+const preview = ref<string | null>(null)
+const picking = ref(false)
 
 const id = computed(() => route.params.id as string | undefined)
 const isEdit = computed(() => !!id.value)
@@ -60,6 +69,10 @@ onMounted(async () => {
         image_path: p.image_path,
         active: p.active,
       })
+      if (p.image_path) {
+        await media.ensure([p.image_path])
+        preview.value = media.url(p.image_path)
+      }
     }
   }
   loading.value = false
@@ -67,9 +80,33 @@ onMounted(async () => {
 
 const canSave = computed(() => form.name.trim().length > 0)
 
+async function choosePhoto() {
+  const dataUrl = await pickImage()
+  if (!dataUrl) return
+  picking.value = true
+  try {
+    const img = await downscale(dataUrl)
+    pendingImage.value = img
+    preview.value = toDataUrl(img.mime, img.data)
+  } finally {
+    picking.value = false
+  }
+}
+
+function removePhoto() {
+  pendingImage.value = null
+  preview.value = null
+  form.image_path = null
+}
+
 async function save() {
   if (!canSave.value) return
   saving.value = true
+  // Baru simpan byte gambar ke tabel media di sini → dapat ref media://<id>.
+  if (pendingImage.value) {
+    form.image_path = await media.save(pendingImage.value)
+    pendingImage.value = null
+  }
   const payload: ProductInput = {
     ...form,
     name: form.name.trim(),
@@ -105,6 +142,32 @@ async function remove() {
     </AppHeader>
 
     <div v-if="!loading" class="space-y-5 p-4 pb-28">
+      <!-- Foto produk -->
+      <div class="flex items-center gap-4">
+        <div class="relative flex size-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-border bg-muted">
+          <img v-if="preview" :src="preview" alt="Foto produk" class="size-full object-cover" />
+          <ImageIcon v-else class="size-8 text-muted-foreground" />
+          <div v-if="picking" class="absolute inset-0 flex items-center justify-center bg-background/70">
+            <Loader2 class="size-6 animate-spin text-muted-foreground" />
+          </div>
+        </div>
+        <div class="space-y-2">
+          <Button type="button" variant="outline" size="sm" class="gap-2" :disabled="picking" @click="choosePhoto">
+            <ImagePlus class="size-4" />
+            {{ preview ? 'Ganti Foto' : 'Tambah Foto' }}
+          </Button>
+          <button
+            v-if="preview"
+            type="button"
+            class="block text-xs text-destructive"
+            @click="removePhoto"
+          >
+            Hapus foto
+          </button>
+          <p v-else class="text-xs text-muted-foreground">JPG/PNG — otomatis dikecilkan.</p>
+        </div>
+      </div>
+
       <div class="space-y-1.5">
         <Label for="name">Nama Produk <span class="text-destructive">*</span></Label>
         <Input id="name" v-model="form.name" placeholder="mis. Bolu Coklat" />

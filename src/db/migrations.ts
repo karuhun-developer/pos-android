@@ -170,6 +170,31 @@ const migrations: Migration[] = [
       }
     },
   },
+  {
+    version: 3,
+    name: 'media-table',
+    up: async (db) => {
+      // Simpan byte gambar terpisah dari row bisnis. products.image_path cuma
+      // nyimpen ref 'media://<id>' → row produk & payload outbox tetap ringan.
+      // Media = SyncEntity → ikut mekanisme outbox → sync otomatis.
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS media (
+          id TEXT PRIMARY KEY NOT NULL,
+          mime TEXT NOT NULL DEFAULT 'image/jpeg',
+          width INTEGER,
+          height INTEGER,
+          bytes INTEGER,
+          hash TEXT,
+          data TEXT,
+          remote_url TEXT,
+          ${SYNC_COLS}
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_media_hash ON media(hash);
+        CREATE INDEX IF NOT EXISTS idx_media_dirty ON media(dirty);
+      `)
+    },
+  },
 ]
 
 /** Jalanin migrasi yang belum di-apply, berurutan, tiap satu dalam transaksi. */

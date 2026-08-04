@@ -39,12 +39,26 @@ try {
   await page.getByText('Roti').waitFor({ timeout: 8000 })
   log('Tambah kategori OK')
 
-  // 4) Buat produk
+  // 4) Buat produk (+ upload foto)
   await page.goto(BASE + '/products/new', { waitUntil: 'networkidle' })
   await page.getByPlaceholder(/Bolu Coklat/).fill('Bolu Coklat')
   // harga
   const priceInput = page.locator('input[inputmode="numeric"]').first()
   await priceInput.fill('26000')
+  // foto — PNG 1x1 lewat file picker (jalur web pickImage)
+  const PNG_1x1 =
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
+  const [chooser] = await Promise.all([
+    page.waitForEvent('filechooser'),
+    page.getByRole('button', { name: /Tambah Foto/ }).click(),
+  ])
+  await chooser.setFiles({
+    name: 'bolu.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from(PNG_1x1, 'base64'),
+  })
+  await page.locator('img[alt="Foto produk"]').waitFor({ timeout: 8000 })
+  log('Foto terpilih — preview tampil')
   await page.getByRole('button', { name: /Simpan Produk/ }).click()
   await page.waitForTimeout(1200)
   await page.goto(BASE + '/products', { waitUntil: 'networkidle' })
@@ -68,6 +82,45 @@ try {
   const hasInsert = ob.some((r) => r.entity === 'products' && r.op === 'insert')
   if (!hasInsert) throw new Error('Outbox tidak mencatat insert produk')
   log('Outbox mencatat perubahan ✔ (sync-ready)')
+
+  // 6b) Gambar sync-ready: media terpisah, produk cuma simpan ref pendek
+  const prodImg = await q(
+    "SELECT image_path FROM products WHERE name='Bolu Coklat'",
+  )
+  if (!String(prodImg[0]?.image_path || '').startsWith('media://'))
+    throw new Error('image_path bukan ref media://')
+  const mediaRows = await q(
+    'SELECT id, mime, hash, length(data) AS len FROM media WHERE deleted_at IS NULL',
+  )
+  if (mediaRows.length !== 1 || !mediaRows[0].len || !mediaRows[0].hash)
+    throw new Error('media row/hash/data tidak sesuai')
+  const mediaOutbox = await q(
+    "SELECT COUNT(*) AS n FROM outbox WHERE entity='media' AND op='insert'",
+  )
+  if (mediaOutbox[0].n < 1) throw new Error('Outbox tidak mencatat insert media')
+  log(
+    `Gambar: image_path=${prodImg[0].image_path.slice(0, 16)}…, media data ${mediaRows[0].len}B, outbox media insert ✔`,
+  )
+
+  // 6c) Bukti hemat: edit harga → payload outbox produk kecil (gak bawa base64),
+  //     jumlah media gak nambah.
+  await page.goto(BASE + '/products', { waitUntil: 'networkidle' })
+  await page.getByText('Bolu Coklat').click()
+  await page.locator('input[inputmode="numeric"]').first().fill('27000')
+  await page.getByRole('button', { name: /Simpan Perubahan/ }).click()
+  await page.waitForTimeout(1200)
+  const upd = await q(
+    "SELECT length(payload) AS len FROM outbox WHERE entity='products' AND op='update' ORDER BY created_at DESC LIMIT 1",
+  )
+  if (!upd.length) throw new Error('Outbox update produk tidak ada')
+  if (upd[0].len > 2000)
+    throw new Error(`Payload update produk kegedean (${upd[0].len}B) — base64 bocor?`)
+  const mediaAfter = await q(
+    'SELECT COUNT(*) AS n FROM media WHERE deleted_at IS NULL',
+  )
+  if (mediaAfter[0].n !== 1)
+    throw new Error('Edit harga bikin media nambah — harusnya gak nyentuh gambar')
+  log(`Edit harga: payload produk ${upd[0].len}B (ringan), media tetap 1 ✔`)
 
   // 7) Persistensi offline — reload, data harus tetap ada
   await page.reload({ waitUntil: 'networkidle' })

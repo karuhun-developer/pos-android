@@ -43,6 +43,13 @@ membaca `outbox` untuk push dan `updated_at`/`sync_version` untuk pull (last-wri
 Detail uang: **INTEGER minor units** (rupiah bulat). `sale_items` menyimpan
 `name_snapshot`+`price_snapshot`. `sales.number` di-prefix `device_id` agar unik offline.
 
+**Media / gambar:** karena `outbox` menyalin seluruh row tiap write, byte gambar
+**tidak** disimpan inline di row bisnis. Tabel `media` (juga SyncEntity) menyimpan
+base64 + `hash` (dedup) + `remote_url`; row bisnis hanya menyimpan ref `media://<id>`.
+Hasilnya: gambar sekali saja masuk outbox (saat insert media), edit produk tetap
+ringan, dan transport bisa di-swap ke object storage nanti (isi `remote_url`, drop
+`data`) tanpa mengubah kode domain. Lihat `src/lib/image.ts` + `stores/media.ts`.
+
 ## Sync abstraction (inert di v1)
 
 `AuthProvider` (sumber token) · `SyncAdapter` (push/pull REST) · `SyncEngine`

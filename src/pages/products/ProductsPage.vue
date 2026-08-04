@@ -10,16 +10,19 @@ import { Badge } from '@/components/ui/badge'
 import { Package, Plus, Search, Tag, Boxes } from 'lucide-vue-next'
 import { useProductsStore } from '@/stores/products'
 import { useCategoriesStore } from '@/stores/categories'
+import { useMediaStore } from '@/stores/media'
 import { formatRupiah } from '@/lib/money'
 import { cn } from '@/lib/utils'
 
 const router = useRouter()
 const products = useProductsStore()
 const categories = useCategoriesStore()
+const media = useMediaStore()
 const { filtered, query, categoryFilter, count } = storeToRefs(products)
 
 onMounted(async () => {
   await Promise.all([products.load(), categories.load()])
+  await media.ensure(products.items.map((p) => p.image_path))
 })
 
 function setFilter(id: string | null) {
@@ -32,8 +35,9 @@ function setFilter(id: string | null) {
     <AppHeader title="Produk" :subtitle="`${count} item`">
       <template #actions>
         <RouterLink to="/categories">
-          <Button variant="ghost" size="icon" title="Kelola kategori">
-            <Tag class="size-5" />
+          <Button variant="outline" size="sm" class="gap-1.5" title="Kelola kategori">
+            <Tag class="size-4" />
+            <span>Kategori</span>
           </Button>
         </RouterLink>
       </template>
@@ -74,8 +78,14 @@ function setFilter(id: string | null) {
         :to="`/products/${p.id}/edit`"
         class="flex items-center gap-3 px-4 py-3 transition active:bg-accent"
       >
-        <div class="flex size-11 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
-          <Package class="size-5" />
+        <div class="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-muted text-muted-foreground">
+          <img
+            v-if="media.url(p.image_path)"
+            :src="media.url(p.image_path)!"
+            :alt="p.name"
+            class="size-full object-cover"
+          />
+          <Package v-else class="size-5" />
         </div>
         <div class="min-w-0 flex-1">
           <p class="truncate text-sm font-medium">{{ p.name }}</p>

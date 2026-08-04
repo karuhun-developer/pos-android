@@ -5,6 +5,20 @@ Tiap phase = satu rilis minor.
 
 ## [Unreleased]
 
+### Added — Foto produk (sync-ready)
+- Upload foto produk lintas-platform: `@capacitor/camera` (native) / file picker (web),
+  otomatis di-downscale ke JPEG ≤512px (`src/lib/image.ts`).
+- Migration **v3** `media-table`: tabel `media` (SyncEntity) menyimpan byte gambar
+  base64 terpisah; `products.image_path` hanya menyimpan ref `media://<id>`.
+- Alasan desain: `outbox` menyalin seluruh row produk tiap edit — menaruh base64 di
+  produk akan membengkakkan payload tiap ganti harga/stok. Media terpisah → gambar
+  hanya sekali masuk outbox, edit produk tetap ringan. Dedup via hash SHA-256.
+- `remote_url` disiapkan untuk swap ke object storage saat POS Pro aktif (tanpa ubah core).
+- UI: kartu foto + preview di form produk, thumbnail di daftar produk, tombol
+  **Kategori** berlabel (menggantikan ikon polos) agar kelola kategori lebih terlihat.
+- Smoke test diperluas: upload foto, verifikasi `media` + `outbox` media insert, dan
+  bukti edit harga tidak menyeret base64 ke payload / tidak menambah media.
+
 ### Direncanakan
 - Phase 2: Point of Sale + checkout (cart, pembayaran, struk, auto-cashflow).
 - Phase 3: Buka/Tutup kasir (sesi, modal awal, hitung akhir, selisih).

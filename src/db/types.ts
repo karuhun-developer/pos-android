@@ -51,6 +51,16 @@ export interface Product extends SyncEntity {
   active: number // 0/1
 }
 
+export interface Media extends SyncEntity {
+  mime: string // mis. 'image/jpeg'
+  width: number | null
+  height: number | null
+  bytes: number | null // ukuran biner (perkiraan) buat info/limit
+  hash: string | null // SHA-256 hex dari base64 → dedup + deteksi perubahan
+  data: string | null // base64 (tanpa prefix data:) — null saat remote_url terisi (future)
+  remote_url: string | null // diisi POS Pro nanti; kalau ada, data boleh di-drop
+}
+
 export interface CashierSession extends SyncEntity {
   opened_at: number
   closed_at: number | null
