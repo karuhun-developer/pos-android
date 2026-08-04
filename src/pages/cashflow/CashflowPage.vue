@@ -6,7 +6,7 @@ import AppHeader from '@/components/layout/AppHeader.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import { Button } from '@/components/ui/button'
 import {
-  Wallet, Plus, Tags, ArrowDownLeft, ArrowUpRight, Lock,
+  Wallet, Plus, Tag, ArrowDownLeft, ArrowUpRight, Lock,
 } from 'lucide-vue-next'
 import { useCashflowStore } from '@/stores/cashflow'
 import { formatRupiah } from '@/lib/money'
@@ -45,11 +45,11 @@ function openEntry(e: CashflowEntry) {
   <div>
     <AppHeader title="Cashflow" :subtitle="formatMonth(nowMs())">
       <template #actions>
-        <RouterLink
-          to="/cashflow/categories"
-          class="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition hover:bg-accent"
-        >
-          <Tags class="size-3.5" /> Kategori
+        <RouterLink to="/cashflow/categories">
+          <Button variant="outline" size="sm" class="gap-1.5" title="Kelola kategori">
+            <Tag class="size-4" />
+            <span>Kategori</span>
+          </Button>
         </RouterLink>
       </template>
     </AppHeader>
