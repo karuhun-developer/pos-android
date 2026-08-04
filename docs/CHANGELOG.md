@@ -5,6 +5,22 @@ Tiap phase = satu rilis minor.
 
 ## [Unreleased]
 
+### Added — Phase 4: Cashflow Ledger
+- **CashflowPage**: ringkasan saldo bulan berjalan (pemasukan/pengeluaran/net),
+  breakdown per kategori, ledger dikelompokkan per hari dengan net harian.
+- **Entri manual** (`CashflowEntryFormPage`): toggle Pemasukan/Pengeluaran,
+  pilih kategori, nominal, catatan — mis. gaji karyawan atau belanja stok.
+  `direction` diturunkan dari `type` kategori (income→debit, expense→credit),
+  `source='manual'`, dan ter-link `session_id` ke sesi kasir aktif saat dibuat.
+- Entri dari checkout (`source='sale'`) tampil terkunci (read-only) di ledger.
+- **Kelola kategori** (`CashflowCategoriesPage`): tambah/rename/hapus kategori
+  income/expense; kategori sistem (Penjualan) terkunci.
+- `src/lib/datetime.ts`: `monthKey`/`formatMonth` untuk agregasi bulanan.
+- Smoke test diperluas: entri manual pengeluaran → assert `direction='credit'` +
+  `source='manual'` + ke-link sesi + memengaruhi `expected_cash` saat tutup kasir.
+- Perbaikan smoke test: langkah soft-delete kini buka halaman edit langsung &
+  menunggu navigasi balik (hilangkan balapan render yang bikin flaky).
+
 ### Added — Phase 3: Buka/Tutup Kasir
 - **Sesi kasir** (`cashier_sessions`): buka dengan modal awal, tutup dengan
   menghitung uang fisik vs perkiraan laci.
@@ -76,7 +92,6 @@ Tiap phase = satu rilis minor.
   (default `brand`).
 
 ### Direncanakan
-- Phase 4: Cashflow ledger (debit/kredit per kategori, entri manual).
 - Phase 5: Login lokal + PIN (default OFF), lock screen.
 - Phase 6: Aktivasi kontrak sync POS Pro (REST/JWT) + plugin printer thermal.
 

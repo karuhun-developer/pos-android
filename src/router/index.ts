@@ -55,6 +55,24 @@ const routes: RouteRecordRaw[] = [
     name: 'cashflow',
     component: () => import('@/pages/cashflow/CashflowPage.vue'),
   },
+  {
+    path: '/cashflow/new',
+    name: 'cashflow-new',
+    component: () => import('@/pages/cashflow/CashflowEntryFormPage.vue'),
+    meta: { hideNav: true },
+  },
+  {
+    path: '/cashflow/categories',
+    name: 'cashflow-categories',
+    component: () => import('@/pages/cashflow/CashflowCategoriesPage.vue'),
+    meta: { hideNav: true },
+  },
+  {
+    path: '/cashflow/:id/edit',
+    name: 'cashflow-edit',
+    component: () => import('@/pages/cashflow/CashflowEntryFormPage.vue'),
+    meta: { hideNav: true },
+  },
 
   // Printer & setelan
   {

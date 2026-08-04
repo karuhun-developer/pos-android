@@ -43,3 +43,16 @@ export function dayKey(ms: number): string {
   const day = String(d.getDate()).padStart(2, '0')
   return `${y}-${m}-${day}`
 }
+
+/** "YYYY-MM" lokal — dipakai buat ringkasan cashflow per bulan. */
+export function monthKey(ms: number): string {
+  const d = new Date(ms)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
+const monthFmt = new Intl.DateTimeFormat('id-ID', { month: 'long', year: 'numeric' })
+
+/** 175... -> "Agustus 2026" */
+export function formatMonth(ms: number): string {
+  return monthFmt.format(new Date(ms))
+}

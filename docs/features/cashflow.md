@@ -1,6 +1,6 @@
 # Fitur: Cashflow Ledger
 
-**Status:** 🔜 Direncanakan (Phase 4) · **Route:** `/cashflow`, `/cashflow/new`, `/cashflow/categories`
+**Status:** ✅ Selesai (Phase 4) · **Route:** `/cashflow`, `/cashflow/new`, `/cashflow/:id/edit`, `/cashflow/categories`
 
 ## Tujuan
 Pembukuan sederhana: pemasukan & pengeluaran per kategori (debit/kredit),
@@ -21,6 +21,16 @@ termasuk entri manual seperti gaji karyawan atau belanja stok.
 - Entri dari checkout dibuat otomatis (`source='sale'`) — read-only di ledger.
 - `direction` diturunkan dari `type` kategori (income→debit, expense→credit).
 
-## Kode (rencana)
+## Kode
 - `src/repositories/cashflowCategory.repo.ts`, `cashflowEntry.repo.ts`
-- `src/stores/cashflow.ts`, `src/pages/cashflow/*`
+- `src/stores/cashflow.ts` — `monthSummary` (income/expense/net bulan ini),
+  `byCategory`, `createEntry`/`updateEntry`/`deleteEntry`, CRUD kategori.
+- `src/pages/cashflow/CashflowPage.vue` — ringkasan bulan + breakdown kategori +
+  ledger per hari; entri `source='sale'` terkunci (ikon gembok), entri manual
+  bisa diklik untuk diedit.
+- `src/pages/cashflow/CashflowEntryFormPage.vue` — tambah/edit entri manual
+  (toggle Pemasukan/Pengeluaran, pilih kategori, nominal, catatan); link
+  `session_id` ke sesi kasir aktif saat dibuat.
+- `src/pages/cashflow/CashflowCategoriesPage.vue` — kelola kategori; kategori
+  sistem (mis. Penjualan) terkunci.
+- `src/lib/datetime.ts` — `monthKey`/`formatMonth` untuk agregasi bulanan.

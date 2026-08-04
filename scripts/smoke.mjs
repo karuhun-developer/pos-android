@@ -194,8 +194,33 @@ try {
     `Checkout atomic ✔ — sale ${s0.number}, item 1, stok 10→9, cashflow +${cf[0].amount}, outbox lengkap`,
   )
 
-  // 6e) Tutup kasir — expected = modal 100000 + tunai 27000 = 127000.
-  //     Hitung aktual 130000 → selisih +3000 (lebih).
+  // 6d-bis) Cashflow manual — catat pengeluaran 5000 (Belanja Stok) ke sesi aktif.
+  //         Buktikan arah 'credit' diturunkan dari tipe kategori + link sesi.
+  await page.goto(BASE + '/cashflow', { waitUntil: 'networkidle' })
+  await page.getByText('Penjualan').first().waitFor({ timeout: 8000 }) // entri auto sale
+  await page.goto(BASE + '/cashflow/new', { waitUntil: 'networkidle' })
+  await page.getByRole('button', { name: /Pengeluaran/ }).click()
+  await page.getByRole('button', { name: /Belanja Stok/ }).click()
+  await page.locator('input[inputmode="numeric"]').first().fill('5000')
+  await page.getByRole('button', { name: /^Simpan$/ }).click()
+  await page.getByText('Saldo bulan ini').waitFor({ timeout: 8000 }) // balik ke ledger
+  const man = await q(
+    "SELECT direction,amount,source,session_id,category_id FROM cashflow_entries WHERE source='manual' ORDER BY occurred_at DESC LIMIT 1",
+  )
+  const m0 = man[0]
+  if (!m0 || m0.direction !== 'credit' || m0.amount !== 5000 || m0.source !== 'manual')
+    throw new Error(`Cashflow manual salah: ${JSON.stringify(m0)}`)
+  if (m0.session_id !== sessionId)
+    throw new Error(`Cashflow manual tidak ke-link sesi: ${m0.session_id}`)
+  const manCat = await q(
+    "SELECT name,type FROM cashflow_categories WHERE id='" + m0.category_id + "'",
+  )
+  if (manCat[0]?.name !== 'Belanja Stok' || manCat[0]?.type !== 'expense')
+    throw new Error(`Kategori cashflow manual salah: ${JSON.stringify(manCat[0])}`)
+  log('Cashflow manual ✔ — pengeluaran 5000 (Belanja Stok, credit) ke-link sesi')
+
+  // 6e) Tutup kasir — expected = modal 100000 + tunai 27000 − manual 5000 = 122000.
+  //     Hitung aktual 130000 → selisih +8000 (lebih).
   await page.goto(BASE + '/cashier', { waitUntil: 'networkidle' })
   await page.getByText('Kasir Terbuka').waitFor({ timeout: 8000 })
   await page.getByRole('button', { name: /Tutup Kasir/ }).click()
@@ -212,13 +237,13 @@ try {
   if (
     !c0 ||
     c0.status !== 'closed' ||
-    c0.expected_cash !== 127000 ||
+    c0.expected_cash !== 122000 ||
     c0.counted_cash !== 130000 ||
-    c0.difference !== 3000
+    c0.difference !== 8000
   )
     throw new Error(`Tutup kasir salah: ${JSON.stringify(c0)}`)
   log(
-    `Tutup kasir ✔ — expected 127000, dihitung 130000, selisih +${c0.difference} (lebih)`,
+    `Tutup kasir ✔ — expected 122000 (modal+tunai−manual), dihitung 130000, selisih +${c0.difference}`,
   )
 
   // 7) Persistensi offline — reload, data harus tetap ada
@@ -227,11 +252,18 @@ try {
   await page.getByText('Bolu Coklat').waitFor({ timeout: 10000 })
   log('Persistensi OK — data bertahan setelah reload')
 
-  // 8) Soft delete
-  await page.getByText('Bolu Coklat').click()
-  page.on('dialog', (d) => d.accept())
-  await page.locator('header button').last().click() // tombol hapus
-  await page.waitForTimeout(1500)
+  // 8) Soft delete — buka halaman edit langsung biar gak balapan sama render list.
+  const prodRow = await q(
+    "SELECT id FROM products WHERE name='Bolu Coklat' AND deleted_at IS NULL LIMIT 1",
+  )
+  page.once('dialog', (d) => d.accept())
+  await page.goto(BASE + '/products/' + prodRow[0].id + '/edit', {
+    waitUntil: 'networkidle',
+  })
+  const delBtn = page.locator('header button').last() // tombol hapus (ikon Trash)
+  await delBtn.waitFor({ state: 'visible', timeout: 8000 })
+  await delBtn.click()
+  await page.waitForURL('**/products', { timeout: 8000 }) // remove() → router.push('/products')
   const afterDel = await q(
     "SELECT deleted_at FROM products WHERE name='Bolu Coklat'",
   )
