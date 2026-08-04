@@ -1,29 +1,65 @@
 # Fitur: Point of Sale + Transaksi
 
-**Status:** 🔜 Direncanakan (Phase 2) · **Route:** `/pos`, `/transactions`, `/transactions/:id`
+**Status:** ✅ Selesai (Phase 2) · **Route:** `/pos`, `/transactions`, `/transactions/:id`
 
 ## Tujuan
-Layar jualan cepat: pilih produk → cart → bayar → struk, sekaligus otomatis
+Layar jualan cepat: pilih produk → keranjang → bayar → struk, sekaligus otomatis
 mencatat pemasukan ke cashflow.
 
 ## User Flow
-1. Buka **Point of Sale**.
-2. Grid produk (produk `active=1`), tap untuk menambah ke cart, atur qty.
-3. **Bayar** → dialog: total, uang diterima, kembalian, metode (tunai dulu).
-4. **Proses** → transaksi tersimpan, struk tampil (cetak via capability printer).
-5. **Transaksi** menampilkan riwayat + detail per struk.
+1. Buka **Kasir** (Point of Sale).
+2. Grid produk (produk `active=1`) + pencarian; tap untuk menambah ke keranjang.
+3. Bar **Lihat Keranjang** ter-pin di bawah → sheet keranjang: atur qty (stepper,
+   dibatasi stok bila `track_stock`), hapus baris, kosongkan.
+4. **Bayar** → dialog pembayaran: total, metode (Tunai / QRIS / Transfer).
+   - Tunai: input uang diterima + saran nominal (uang pas & pembulatan), kembalian.
+   - QRIS: bila **QRIS Dinamis** aktif, QR dengan nominal pas dirender untuk di-scan.
+5. **Selesaikan Pembayaran** → transaksi tersimpan atomic, layar sukses (total +
+   kembalian) → **Cetak Struk** atau **Transaksi Baru**.
+6. **Transaksi** menampilkan riwayat (dikelompokkan per hari + ringkasan hari ini)
+   dan detail per struk (cetak ulang struk).
 
 ## Data & Aturan
-- `sales` + `sale_items` (dengan `name_snapshot`/`price_snapshot`).
-- Checkout = **satu transaksi atomic** (`CheckoutService`):
+- `sales` + `sale_items` (dengan `name_snapshot`/`price_snapshot` → history aman
+  walau produk diedit/dihapus).
+- Checkout = **satu transaksi atomic** (`CheckoutService.checkout`):
   1. insert `sales` + `sale_items`,
   2. kurangi `stock` untuk produk `track_stock`,
-  3. insert `cashflow_entries` (income, kategori sistem *Penjualan*, `source='sale'`, `source_ref=sales.id`),
+  3. insert `cashflow_entries` (`direction='debit'`, kategori sistem *Penjualan*,
+     `source='sale'`, `source_ref=sales.id`),
   4. `session_id` = sesi kasir aktif (bila ada, Phase 3).
-- `sales.number` = `{device_id}-{urut}` agar unik offline.
+  Tiap tulisan menghasilkan baris `outbox`-nya sendiri (sync-ready).
+- `sales.number` = `{PREFIX}-{YYYYMMDD}-{seq}`; `PREFIX` dari `device_id`, `seq` =
+  jumlah sale hari yang sama + 1 → unik walau offline & multi-device.
+- Uang = INTEGER minor units (rupiah bulat), tanpa float.
 
-## Kode (rencana)
+### Catatan korektness transaksi
+- `SqliteDb.transaction` **reentran** pada instance yang sama (`this.inTx`); di
+  dalam transaksi callback menerima handle `tx` baru (`inTransaction=true`).
+  `CheckoutService` membangun **semua repo di atas `tx`** agar tidak membuka
+  transaksi bersarang.
+- `persist()` (= `saveToStore`) menutup transaksi SQLite aktif. `BaseRepository`
+  men-guard `persist()` dengan `if (!this.db.inTransaction)`, dan checkout
+  memanggil `persist()` **sekali** setelah commit terluar.
+
+## QRIS Dinamis (checkout)
+- Jika metode = QRIS **dan** `settings.qris_dynamic` aktif **dan**
+  `settings.qris_payload` ada → `makeDynamicPayload(payload, total)` +
+  `encodeQrToDataUrl` merender QR nominal-pas di PaymentDialog.
+- Detail algoritma & setelan: lihat `settings-auth.md` (bagian QRIS).
+
+## Kode
 - `src/services/checkout.service.ts`
-- `src/repositories/sale.repo.ts`, `saleItem.repo.ts`
-- `src/stores/cart.ts`
-- `src/pages/pos/PosPage.vue`, `src/components/pos/*`
+- `src/repositories/sale.repo.ts`, `saleItem.repo.ts`,
+  `cashflowCategory.repo.ts`, `cashflowEntry.repo.ts`
+- `src/stores/cart.ts`, `src/stores/sales.ts`
+- `src/lib/receipt.ts` (struk dua kolom monospace)
+- `src/pages/pos/PosPage.vue`, `src/components/pos/{CartSheet,PaymentDialog}.vue`,
+  `src/components/common/BottomSheet.vue`
+- `src/pages/transactions/{TransactionsPage,TransactionDetailPage}.vue`
+
+## Verifikasi
+Smoke test (Playwright): jual Bolu Coklat → sale (total 27000 / paid 50000 /
+change 23000 / completed), `sale_items` (qty 1, line_total 27000), stok 10→9,
+`cashflow_entries` (debit +27000), dan `outbox` memuat `sales` + `sale_items` +
+`cashflow_entries` — **lulus**.

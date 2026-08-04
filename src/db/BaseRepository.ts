@@ -66,7 +66,9 @@ export abstract class BaseRepository<T extends SyncEntity> {
       )
       await this.logChange(tx, 'insert', row.id, row)
     })
-    await persist()
+    // Kalau lagi di dalam transaksi terluar (mis. checkout), tunda persist
+    // sampai transaksi commit — persist di tengah nutup transaksi lebih awal.
+    if (!this.db.inTransaction) await persist()
     return row
   }
 
@@ -91,7 +93,7 @@ export abstract class BaseRepository<T extends SyncEntity> {
       if (updated) await this.logChange(tx, 'update', id, updated)
       return updated
     })
-    await persist()
+    if (!this.db.inTransaction) await persist()
     return result
   }
 
@@ -105,7 +107,7 @@ export abstract class BaseRepository<T extends SyncEntity> {
       )
       await this.logChange(tx, 'delete', id, { id, deleted_at: t })
     })
-    await persist()
+    if (!this.db.inTransaction) await persist()
   }
 
   async findById(id: string, db: Db = this.db): Promise<T | null> {

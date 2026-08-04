@@ -5,6 +5,34 @@ Tiap phase = satu rilis minor.
 
 ## [Unreleased]
 
+### Added — Phase 2: Point of Sale + Checkout
+- **PosPage**: grid produk + pencarian, tambah ke keranjang, sheet keranjang
+  (stepper qty, hormati stok bila `track_stock`), bar keranjang ter-pin di bawah.
+- **PaymentDialog**: metode Tunai/QRIS/Transfer, saran nominal uang pas +
+  pembulatan, hitung kembalian.
+- **CheckoutService** — satu transaksi atomic menulis `sales` + `sale_items`
+  (dengan `name_snapshot`/`price_snapshot`) + kurangi stok + `cashflow_entries`
+  income kategori sistem *Penjualan*; tiap tulisan punya baris `outbox` sendiri.
+- Nomor struk device-prefixed `<PREFIX>-<YYYYMMDD>-<seq>` (prefix dari `device_id`).
+- Riwayat transaksi (`TransactionsPage`, dikelompokkan per hari + ringkasan hari ini)
+  & detail transaksi (`TransactionDetailPage`) dengan cetak ulang struk.
+- Struk lewat `WebPreviewPrinter` (`src/lib/receipt.ts`, dua kolom monospace).
+- Perbaikan korektness: `Db.inTransaction` + guard `persist()` di `BaseRepository`
+  agar `saveToStore` tidak menutup transaksi checkout di tengah jalan (repo
+  dibangun di atas handle `tx` karena `SqliteDb.transaction` reentran).
+
+### Added — QRIS Dinamis
+- Setelan **Pembayaran QRIS**: upload gambar QRIS statis toko sekali (decode via
+  `jsqr`), disimpan sebagai payload EMV di `settings.qris_payload`.
+- Toggle **QRIS Dinamis** (`settings.qris_dynamic`, default OFF, hanya aktif bila
+  QRIS statis sudah di-upload): saat pembayaran metode QRIS, nominal tagihan
+  otomatis disuntik ke payload lalu QR baru dirender (`qrcode`) di PaymentDialog —
+  pembeli scan langsung dengan jumlah pas, tanpa ketik manual.
+- Algoritma `src/lib/qris.ts` (adaptasi verssache/qris-dinamis): buang CRC lama →
+  `010211`→`010212` → sisipkan tag `54<len><nominal>` sebelum `5802ID` → hitung
+  ulang CRC16-CCITT (0xFFFF, poly 0x1021). CRC diverifikasi dgn check-vector
+  standar (`crc16("123456789") === 29B1`) dan round-trip self-CRC payload dinamis.
+
 ### Added — Foto produk (sync-ready)
 - Upload foto produk lintas-platform: `@capacitor/camera` (native) / file picker (web),
   otomatis di-downscale ke JPEG ≤512px (`src/lib/image.ts`).
@@ -32,7 +60,6 @@ Tiap phase = satu rilis minor.
   (default `brand`).
 
 ### Direncanakan
-- Phase 2: Point of Sale + checkout (cart, pembayaran, struk, auto-cashflow).
 - Phase 3: Buka/Tutup kasir (sesi, modal awal, hitung akhir, selisih).
 - Phase 4: Cashflow ledger (debit/kredit per kategori, entri manual).
 - Phase 5: Login lokal + PIN (default OFF), lock screen.

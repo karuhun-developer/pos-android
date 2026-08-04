@@ -10,21 +10,26 @@ import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
 import {
   Store, Lock, Moon, Cloud, Smartphone, Save, ImagePlus, Sparkles, Check,
+  QrCode, Loader2,
 } from 'lucide-vue-next'
 import { useSettingsStore, type SplashBg } from '@/stores/settings'
 import { useMediaStore } from '@/stores/media'
 import { pickImage, downscale } from '@/lib/image'
+import { decodeQrFromDataUrl, encodeQrToDataUrl, isValidQris } from '@/lib/qris'
 
 const settings = useSettingsStore()
 const media = useMediaStore()
 const { storeName, storeOwner, storeLogo, loginEnabled, theme, deviceId,
-  splashEnabled, splashBg } = storeToRefs(settings)
+  splashEnabled, splashBg, qrisPayload, qrisDynamic } = storeToRefs(settings)
 
 const name = ref('')
 const owner = ref('')
 const savingProfile = ref(false)
 const savedFlash = ref(false)
 const logoBusy = ref(false)
+const qrisBusy = ref(false)
+const qrisError = ref('')
+const qrisPreview = ref<string | null>(null)
 
 const SPLASH_BGS: Array<{ id: SplashBg; label: string; swatch: string }> = [
   { id: 'brand', label: 'Brand', swatch: 'bg-gradient-to-b from-primary to-primary/70' },
@@ -32,11 +37,44 @@ const SPLASH_BGS: Array<{ id: SplashBg; label: string; swatch: string }> = [
   { id: 'dark', label: 'Gelap', swatch: 'bg-slate-900' },
 ]
 
-onMounted(() => {
+onMounted(async () => {
   name.value = storeName.value
   owner.value = storeOwner.value
   if (storeLogo.value) media.ensure([storeLogo.value])
+  await renderQrisPreview()
 })
+
+async function renderQrisPreview() {
+  qrisPreview.value = qrisPayload.value ? await encodeQrToDataUrl(qrisPayload.value) : null
+}
+
+async function chooseQris() {
+  const dataUrl = await pickImage()
+  if (!dataUrl) return
+  qrisBusy.value = true
+  qrisError.value = ''
+  try {
+    const payload = await decodeQrFromDataUrl(dataUrl)
+    if (!payload) {
+      qrisError.value = 'QR tidak terbaca. Coba gambar QRIS yang lebih jelas/besar.'
+      return
+    }
+    if (!isValidQris(payload)) {
+      qrisError.value = 'Gambar ini sepertinya bukan QRIS statis yang valid.'
+      return
+    }
+    await settings.setQris(payload)
+    await renderQrisPreview()
+  } finally {
+    qrisBusy.value = false
+  }
+}
+
+async function removeQris() {
+  await settings.setQris(null)
+  qrisPreview.value = null
+  qrisError.value = ''
+}
 
 async function chooseLogo() {
   const dataUrl = await pickImage()
@@ -190,6 +228,63 @@ async function onToggleLogin(v: boolean) {
                 </button>
               </div>
             </div>
+          </CardContent>
+        </Card>
+      </section>
+
+      <!-- QRIS Dinamis -->
+      <section class="space-y-3">
+        <p class="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Pembayaran QRIS
+        </p>
+        <Card>
+          <CardContent class="space-y-4 p-4">
+            <!-- Upload QRIS statis -->
+            <div class="flex items-center gap-4">
+              <div class="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-border bg-white text-muted-foreground">
+                <img v-if="qrisPreview" :src="qrisPreview" alt="QRIS" class="size-full object-contain p-0.5" />
+                <QrCode v-else class="size-6" />
+              </div>
+              <div class="min-w-0 flex-1 space-y-1.5">
+                <p class="text-sm font-medium">QRIS Statis Toko</p>
+                <p class="text-xs text-muted-foreground">
+                  Upload gambar QRIS toko sekali. Dipakai untuk menerima pembayaran.
+                </p>
+                <div class="flex items-center gap-2 pt-0.5">
+                  <Button type="button" variant="outline" size="sm" class="gap-1.5" :disabled="qrisBusy" @click="chooseQris">
+                    <Loader2 v-if="qrisBusy" class="size-3.5 animate-spin" />
+                    <ImagePlus v-else class="size-3.5" />
+                    {{ qrisPayload ? 'Ganti' : 'Upload QRIS' }}
+                  </Button>
+                  <Button v-if="qrisPayload" type="button" variant="ghost" size="sm" class="text-destructive" @click="removeQris">
+                    Hapus
+                  </Button>
+                </div>
+              </div>
+            </div>
+            <p v-if="qrisError" class="text-xs text-destructive">{{ qrisError }}</p>
+
+            <!-- Toggle dinamis -->
+            <div class="flex items-start gap-3 border-t border-border pt-4">
+              <div class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+                <QrCode class="size-5" />
+              </div>
+              <div class="flex-1">
+                <p class="text-sm font-medium">QRIS Dinamis</p>
+                <p class="text-xs text-muted-foreground">
+                  Saat pembeli bayar pakai QRIS, nominal tagihan otomatis dimasukkan ke
+                  kode QR — pembeli scan langsung dengan jumlah pas, tanpa ketik manual.
+                </p>
+              </div>
+              <Switch
+                :model-value="qrisDynamic"
+                :disabled="!qrisPayload"
+                @update:model-value="settings.setQrisDynamic($event)"
+              />
+            </div>
+            <p v-if="!qrisPayload" class="text-xs text-muted-foreground">
+              Upload QRIS statis dulu untuk mengaktifkan mode dinamis.
+            </p>
           </CardContent>
         </Card>
       </section>

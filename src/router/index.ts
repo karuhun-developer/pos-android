@@ -35,6 +35,12 @@ const routes: RouteRecordRaw[] = [
     name: 'transactions',
     component: () => import('@/pages/transactions/TransactionsPage.vue'),
   },
+  {
+    path: '/transactions/:id',
+    name: 'transaction-detail',
+    component: () => import('@/pages/transactions/TransactionDetailPage.vue'),
+    meta: { hideNav: true },
+  },
 
   // Kasir (Phase 3)
   {

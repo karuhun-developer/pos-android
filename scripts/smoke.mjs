@@ -14,6 +14,10 @@ page.on('pageerror', (e) => errors.push(String(e)))
 async function q(sql) {
   return page.evaluate((s) => window.__db.query(s), sql)
 }
+async function run(sql) {
+  // Bungkus di transaction() biar ke-commit (run pakai transaction:false).
+  return page.evaluate((s) => window.__db.transaction((tx) => tx.run(s)), sql)
+}
 
 try {
   // 1) Boot — HomePage tampil = initDb() sukses (app mount setelah DB siap)
@@ -121,6 +125,57 @@ try {
   if (mediaAfter[0].n !== 1)
     throw new Error('Edit harga bikin media nambah — harusnya gak nyentuh gambar')
   log(`Edit harga: payload produk ${upd[0].len}B (ringan), media tetap 1 ✔`)
+
+  // 6d) POS + Checkout — jual Bolu Coklat, buktikan 1 transaksi atomic
+  //     (sales + sale_items + kurangi stok + cashflow) + outbox lengkap.
+  await page.goto(BASE + '/products', { waitUntil: 'networkidle' })
+  await page.getByText('Bolu Coklat').waitFor({ timeout: 8000 })
+  // Aktifkan lacak stok + stok 10 (in-memory). Navigasi ke POS lewat klik nav
+  // (client-side, tanpa reload) supaya perubahan in-memory ini kepakai.
+  await run("UPDATE products SET track_stock=1, stock=10 WHERE name='Bolu Coklat'")
+  await page.getByRole('link', { name: 'Kasir' }).click()
+  await page.getByRole('button', { name: /Bolu Coklat/ }).click() // tambah ke cart
+  await page.getByRole('button', { name: /Lihat Keranjang/ }).click()
+  await page.getByRole('button', { name: 'Bayar' }).click()
+  await page.getByText('Total Tagihan').waitFor({ timeout: 8000 })
+  await page.locator('input[inputmode="numeric"]').first().fill('50000') // uang diterima
+  await page.getByRole('button', { name: /Selesaikan Pembayaran/ }).click()
+  await page.getByText('Transaksi Berhasil').waitFor({ timeout: 8000 })
+  log('Checkout OK — layar sukses tampil')
+
+  const sale = await q(
+    "SELECT number,total,paid,change_due,payment_method,status FROM sales WHERE deleted_at IS NULL ORDER BY sold_at DESC LIMIT 1",
+  )
+  if (!sale.length) throw new Error('Sale tidak tercatat')
+  const s0 = sale[0]
+  if (s0.total !== 27000 || s0.paid !== 50000 || s0.change_due !== 23000)
+    throw new Error(`Angka sale salah: ${JSON.stringify(s0)}`)
+  if (s0.status !== 'completed') throw new Error('status sale bukan completed')
+
+  const si = await q(
+    "SELECT name_snapshot,qty,line_total FROM sale_items ORDER BY created_at DESC LIMIT 1",
+  )
+  if (si[0]?.name_snapshot !== 'Bolu Coklat' || si[0]?.qty !== 1 || si[0]?.line_total !== 27000)
+    throw new Error(`sale_item salah: ${JSON.stringify(si[0])}`)
+
+  const stock = await q("SELECT stock FROM products WHERE name='Bolu Coklat'")
+  if (stock[0]?.stock !== 9) throw new Error(`Stok tidak berkurang: ${stock[0]?.stock}`)
+
+  const cf = await q(
+    "SELECT source,direction,amount FROM cashflow_entries WHERE source='sale' ORDER BY occurred_at DESC LIMIT 1",
+  )
+  if (cf[0]?.direction !== 'debit' || cf[0]?.amount !== 27000)
+    throw new Error(`cashflow sale salah: ${JSON.stringify(cf[0])}`)
+
+  const posOb = await q(
+    "SELECT DISTINCT entity FROM outbox WHERE entity IN ('sales','sale_items','cashflow_entries')",
+  )
+  const ents = posOb.map((r) => r.entity)
+  for (const e of ['sales', 'sale_items', 'cashflow_entries'])
+    if (!ents.includes(e)) throw new Error(`Outbox tidak mencatat ${e}`)
+  log(
+    `Checkout atomic ✔ — sale ${s0.number}, item 1, stok 10→9, cashflow +${cf[0].amount}, outbox lengkap`,
+  )
 
   // 7) Persistensi offline — reload, data harus tetap ada
   await page.reload({ waitUntil: 'networkidle' })

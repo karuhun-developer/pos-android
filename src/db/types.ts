@@ -28,6 +28,10 @@ export interface Db {
   /** Jalanin fn dalam 1 transaksi atomic. Reentrant: kalau sudah di dalam
    *  transaksi, fn ikut transaksi yang sedang berjalan (gak nested-commit). */
   transaction<T>(fn: (tx: Db) => Promise<T>): Promise<T>
+  /** True kalau instance ini adalah handle transaksi yang sedang aktif.
+   *  Dipakai repo buat nunda persist() sampai commit terluar (persist di
+   *  tengah transaksi bikin transaksi keburu tertutup). */
+  readonly inTransaction: boolean
 }
 
 // ── Row types ────────────────────────────────────────────────────────────────

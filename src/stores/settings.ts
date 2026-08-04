@@ -16,6 +16,8 @@ const KEYS = {
   theme: 'theme',
   splashEnabled: 'splash_enabled',
   splashBg: 'splash_bg',
+  qrisPayload: 'qris_payload',
+  qrisDynamic: 'qris_dynamic',
 } as const
 
 export const useSettingsStore = defineStore('settings', () => {
@@ -29,6 +31,8 @@ export const useSettingsStore = defineStore('settings', () => {
   const theme = ref<'light' | 'dark'>('light')
   const splashEnabled = ref(false) // DEFAULT: splash mati
   const splashBg = ref<SplashBg>('brand') // DEFAULT: warna brand
+  const qrisPayload = ref<string | null>(null) // string EMV QRIS statis hasil decode
+  const qrisDynamic = ref(false) // DEFAULT: off — nominal QRIS di-inject otomatis
 
   const hasPin = computed(() => !!pinHash.value)
 
@@ -48,6 +52,8 @@ export const useSettingsStore = defineStore('settings', () => {
     splashEnabled.value = all[KEYS.splashEnabled] === '1'
     const bg = all[KEYS.splashBg]
     splashBg.value = bg === 'light' || bg === 'dark' ? bg : 'brand'
+    qrisPayload.value = all[KEYS.qrisPayload] || null
+    qrisDynamic.value = all[KEYS.qrisDynamic] === '1'
 
     // device_id dibuat sekali, dipakai buat prefix nomor struk.
     deviceId.value = all[KEYS.deviceId] || ''
@@ -87,6 +93,18 @@ export const useSettingsStore = defineStore('settings', () => {
     if (Object.keys(patch).length) await repo().setMany(patch)
   }
 
+  async function setQris(payload: string | null) {
+    qrisPayload.value = payload
+    await repo().set(KEYS.qrisPayload, payload ?? '')
+    // Matiin dinamis otomatis kalau QRIS dihapus.
+    if (!payload && qrisDynamic.value) await setQrisDynamic(false)
+  }
+
+  async function setQrisDynamic(enabled: boolean) {
+    qrisDynamic.value = enabled
+    await repo().set(KEYS.qrisDynamic, enabled ? '1' : '0')
+  }
+
   async function setLoginEnabled(enabled: boolean) {
     loginEnabled.value = enabled
     await repo().set(KEYS.loginEnabled, enabled ? '1' : '0')
@@ -114,11 +132,15 @@ export const useSettingsStore = defineStore('settings', () => {
     theme,
     splashEnabled,
     splashBg,
+    qrisPayload,
+    qrisDynamic,
     hasPin,
     load,
     setProfile,
     setLogo,
     setSplash,
+    setQris,
+    setQrisDynamic,
     setLoginEnabled,
     setPinHash,
     toggleTheme,

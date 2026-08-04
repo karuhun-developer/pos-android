@@ -42,6 +42,10 @@ class SqliteDb implements Db {
     private inTx = false,
   ) {}
 
+  get inTransaction(): boolean {
+    return this.inTx
+  }
+
   async query<T = Record<string, unknown>>(
     sql: string,
     params: unknown[] = [],
