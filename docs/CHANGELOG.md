@@ -24,10 +24,12 @@ Tiap phase = satu rilis minor.
 ### Added — QRIS Dinamis
 - Setelan **Pembayaran QRIS**: upload gambar QRIS statis toko sekali (decode via
   `jsqr`), disimpan sebagai payload EMV di `settings.qris_payload`.
-- Toggle **QRIS Dinamis** (`settings.qris_dynamic`, default OFF, hanya aktif bila
-  QRIS statis sudah di-upload): saat pembayaran metode QRIS, nominal tagihan
-  otomatis disuntik ke payload lalu QR baru dirender (`qrcode`) di PaymentDialog —
-  pembeli scan langsung dengan jumlah pas, tanpa ketik manual.
+- Saat pembayaran metode QRIS, PaymentDialog merender QR untuk di-scan pembeli
+  dengan tombol **Sudah Bayar** / **Batal**:
+  - **QRIS statis** (dinamis mati) → QR toko apa adanya, pembeli ketik nominal manual.
+  - **QRIS Dinamis** (`settings.qris_dynamic`, default OFF, aktif bila QRIS statis
+    di-upload) → nominal tagihan disuntik ke payload lalu QR baru dirender
+    (`qrcode`) — pembeli scan langsung dengan jumlah pas, tanpa ketik manual.
 - Algoritma `src/lib/qris.ts` (adaptasi verssache/qris-dinamis): buang CRC lama →
   `010211`→`010212` → sisipkan tag `54<len><nominal>` sebelum `5802ID` → hitung
   ulang CRC16-CCITT (0xFFFF, poly 0x1021). CRC diverifikasi dgn check-vector

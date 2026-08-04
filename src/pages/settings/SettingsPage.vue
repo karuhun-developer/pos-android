@@ -159,6 +159,63 @@ async function onToggleLogin(v: boolean) {
         </Card>
       </section>
 
+      <!-- Pembayaran QRIS -->
+      <section class="space-y-3">
+        <p class="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Pembayaran QRIS
+        </p>
+        <Card>
+          <CardContent class="space-y-4 p-4">
+            <!-- Upload QRIS statis -->
+            <div class="flex items-center gap-4">
+              <div class="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-border bg-white text-muted-foreground">
+                <img v-if="qrisPreview" :src="qrisPreview" alt="QRIS" class="size-full object-contain p-0.5" />
+                <QrCode v-else class="size-6" />
+              </div>
+              <div class="min-w-0 flex-1 space-y-1.5">
+                <p class="text-sm font-medium">QRIS Statis Toko</p>
+                <p class="text-xs text-muted-foreground">
+                  Upload gambar QRIS toko sekali. Dipakai untuk menerima pembayaran.
+                </p>
+                <div class="flex items-center gap-2 pt-0.5">
+                  <Button type="button" variant="outline" size="sm" class="gap-1.5" :disabled="qrisBusy" @click="chooseQris">
+                    <Loader2 v-if="qrisBusy" class="size-3.5 animate-spin" />
+                    <ImagePlus v-else class="size-3.5" />
+                    {{ qrisPayload ? 'Ganti' : 'Upload QRIS' }}
+                  </Button>
+                  <Button v-if="qrisPayload" type="button" variant="ghost" size="sm" class="text-destructive" @click="removeQris">
+                    Hapus
+                  </Button>
+                </div>
+              </div>
+            </div>
+            <p v-if="qrisError" class="text-xs text-destructive">{{ qrisError }}</p>
+
+            <!-- Toggle dinamis -->
+            <div class="flex items-start gap-3 border-t border-border pt-4">
+              <div class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+                <QrCode class="size-5" />
+              </div>
+              <div class="flex-1">
+                <p class="text-sm font-medium">QRIS Dinamis</p>
+                <p class="text-xs text-muted-foreground">
+                  Saat pembeli bayar pakai QRIS, nominal tagihan otomatis dimasukkan ke
+                  kode QR — pembeli scan langsung dengan jumlah pas, tanpa ketik manual.
+                </p>
+              </div>
+              <Switch
+                :model-value="qrisDynamic"
+                :disabled="!qrisPayload"
+                @update:model-value="settings.setQrisDynamic($event)"
+              />
+            </div>
+            <p v-if="!qrisPayload" class="text-xs text-muted-foreground">
+              Upload QRIS statis dulu untuk mengaktifkan mode dinamis.
+            </p>
+          </CardContent>
+        </Card>
+      </section>
+
       <!-- Keamanan -->
       <section class="space-y-3">
         <p class="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -228,63 +285,6 @@ async function onToggleLogin(v: boolean) {
                 </button>
               </div>
             </div>
-          </CardContent>
-        </Card>
-      </section>
-
-      <!-- QRIS Dinamis -->
-      <section class="space-y-3">
-        <p class="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Pembayaran QRIS
-        </p>
-        <Card>
-          <CardContent class="space-y-4 p-4">
-            <!-- Upload QRIS statis -->
-            <div class="flex items-center gap-4">
-              <div class="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-border bg-white text-muted-foreground">
-                <img v-if="qrisPreview" :src="qrisPreview" alt="QRIS" class="size-full object-contain p-0.5" />
-                <QrCode v-else class="size-6" />
-              </div>
-              <div class="min-w-0 flex-1 space-y-1.5">
-                <p class="text-sm font-medium">QRIS Statis Toko</p>
-                <p class="text-xs text-muted-foreground">
-                  Upload gambar QRIS toko sekali. Dipakai untuk menerima pembayaran.
-                </p>
-                <div class="flex items-center gap-2 pt-0.5">
-                  <Button type="button" variant="outline" size="sm" class="gap-1.5" :disabled="qrisBusy" @click="chooseQris">
-                    <Loader2 v-if="qrisBusy" class="size-3.5 animate-spin" />
-                    <ImagePlus v-else class="size-3.5" />
-                    {{ qrisPayload ? 'Ganti' : 'Upload QRIS' }}
-                  </Button>
-                  <Button v-if="qrisPayload" type="button" variant="ghost" size="sm" class="text-destructive" @click="removeQris">
-                    Hapus
-                  </Button>
-                </div>
-              </div>
-            </div>
-            <p v-if="qrisError" class="text-xs text-destructive">{{ qrisError }}</p>
-
-            <!-- Toggle dinamis -->
-            <div class="flex items-start gap-3 border-t border-border pt-4">
-              <div class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
-                <QrCode class="size-5" />
-              </div>
-              <div class="flex-1">
-                <p class="text-sm font-medium">QRIS Dinamis</p>
-                <p class="text-xs text-muted-foreground">
-                  Saat pembeli bayar pakai QRIS, nominal tagihan otomatis dimasukkan ke
-                  kode QR — pembeli scan langsung dengan jumlah pas, tanpa ketik manual.
-                </p>
-              </div>
-              <Switch
-                :model-value="qrisDynamic"
-                :disabled="!qrisPayload"
-                @update:model-value="settings.setQrisDynamic($event)"
-              />
-            </div>
-            <p v-if="!qrisPayload" class="text-xs text-muted-foreground">
-              Upload QRIS statis dulu untuk mengaktifkan mode dinamis.
-            </p>
           </CardContent>
         </Card>
       </section>

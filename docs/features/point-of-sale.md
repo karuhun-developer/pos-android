@@ -42,11 +42,17 @@ mencatat pemasukan ke cashflow.
   men-guard `persist()` dengan `if (!this.db.inTransaction)`, dan checkout
   memanggil `persist()` **sekali** setelah commit terluar.
 
-## QRIS Dinamis (checkout)
-- Jika metode = QRIS **dan** `settings.qris_dynamic` aktif **dan**
-  `settings.qris_payload` ada → `makeDynamicPayload(payload, total)` +
-  `encodeQrToDataUrl` merender QR nominal-pas di PaymentDialog.
-- Detail algoritma & setelan: lihat `settings-auth.md` (bagian QRIS).
+## QRIS di checkout
+Bila metode = QRIS **dan** `settings.qris_payload` ada, PaymentDialog merender QR
+untuk di-scan pembeli, dengan tombol **Sudah Bayar** / **Batal** (bukan langsung
+"Selesaikan Pembayaran"):
+- `qris_dynamic` **aktif** → `makeDynamicPayload(payload, total)`: QR nominal-pas,
+  pembeli tidak perlu ketik jumlah.
+- `qris_dynamic` **mati** → tampilkan QRIS statis apa adanya; pembeli scan lalu
+  ketik nominal manual (caption mengingatkan jumlahnya).
+
+Bila QRIS statis belum di-upload, metode QRIS jatuh ke fallback "dianggap lunas".
+Detail algoritma & setelan: lihat `settings-auth.md` (bagian QRIS).
 
 ## Kode
 - `src/services/checkout.service.ts`

@@ -26,10 +26,14 @@ const METHODS: Array<{ id: Method; label: string; icon: typeof Banknote }> = [
 const method = ref<Method>('cash')
 const paid = ref(0)
 
-// QRIS dinamis: QR di-generate saat metode QRIS dipilih & fitur aktif.
+// QRIS: QR di-generate saat metode QRIS dipilih & QRIS statis sudah di-upload.
+// - dinamis aktif → payload di-inject nominal tagihan (scan langsung jumlah pas)
+// - dinamis mati  → tampilkan QRIS statis apa adanya (pembeli ketik nominal)
 const qrDataUrl = ref<string | null>(null)
 const qrLoading = ref(false)
-const qrisDynamicReady = computed(() => settings.qrisDynamic && !!settings.qrisPayload)
+const hasQris = computed(() => !!settings.qrisPayload)
+const qrisDynamicReady = computed(() => settings.qrisDynamic && hasQris.value)
+const showQris = computed(() => method.value === 'qris' && hasQris.value)
 
 // Reset tiap kali dialog dibuka.
 watch(
@@ -49,16 +53,24 @@ watch([method, () => props.total, () => props.open], () => {
 
 async function genQr() {
   qrDataUrl.value = null
-  if (method.value !== 'qris' || !qrisDynamicReady.value || props.total <= 0) return
+  if (method.value !== 'qris' || !hasQris.value) return
   qrLoading.value = true
   try {
-    const payload = makeDynamicPayload(settings.qrisPayload!, props.total)
+    // Dinamis: suntik nominal. Statis: pakai payload apa adanya.
+    const payload =
+      qrisDynamicReady.value && props.total > 0
+        ? makeDynamicPayload(settings.qrisPayload!, props.total)
+        : settings.qrisPayload!
     qrDataUrl.value = await encodeQrToDataUrl(payload)
   } catch {
     qrDataUrl.value = null
   } finally {
     qrLoading.value = false
   }
+}
+
+function cancel() {
+  emit('update:open', false)
 }
 
 // Saran nominal tunai: uang pas + pembulatan ke atas.
@@ -129,16 +141,20 @@ function confirm() {
           </div>
         </div>
       </template>
-      <!-- QRIS dinamis: tampilkan QR dengan nominal pas -->
-      <div v-else-if="method === 'qris' && qrisDynamicReady" class="space-y-3 text-center">
+      <!-- QRIS: tampilkan QR untuk di-scan (statis apa adanya / dinamis nominal pas) -->
+      <div v-else-if="showQris" class="space-y-3 text-center">
         <div class="mx-auto flex size-56 items-center justify-center rounded-2xl border border-border bg-white p-2">
           <Loader2 v-if="qrLoading" class="size-6 animate-spin text-muted-foreground" />
-          <img v-else-if="qrDataUrl" :src="qrDataUrl" alt="QRIS Dinamis" class="size-full object-contain" />
+          <img v-else-if="qrDataUrl" :src="qrDataUrl" alt="QRIS" class="size-full object-contain" />
           <span v-else class="px-4 text-xs text-destructive">Gagal membuat QR. Cek QRIS di setelan.</span>
         </div>
-        <p class="text-xs text-muted-foreground">
+        <p v-if="qrisDynamicReady" class="text-xs text-muted-foreground">
           Pembeli scan QR ini — nominal sudah terkunci
           <span class="font-semibold text-foreground">{{ formatRupiah(total) }}</span>.
+        </p>
+        <p v-else class="text-xs text-muted-foreground">
+          Pembeli scan QR ini lalu masukkan nominal
+          <span class="font-semibold text-foreground">{{ formatRupiah(total) }}</span> manual.
         </p>
       </div>
       <p v-else class="text-center text-xs text-muted-foreground">
@@ -153,7 +169,17 @@ function confirm() {
         </span>
       </div>
 
-      <Button class="h-12 w-full gap-2 text-base" :disabled="!canConfirm" @click="confirm">
+      <!-- QRIS: pembeli scan dulu, kasir konfirmasi "Sudah Bayar" / batal -->
+      <div v-if="showQris" class="grid grid-cols-2 gap-2">
+        <Button variant="outline" class="h-12 text-base" :disabled="busy" @click="cancel">
+          Batal
+        </Button>
+        <Button class="h-12 gap-2 text-base" :disabled="!canConfirm" @click="confirm">
+          <Loader2 v-if="busy" class="size-4 animate-spin" />
+          {{ busy ? 'Memproses…' : 'Sudah Bayar' }}
+        </Button>
+      </div>
+      <Button v-else class="h-12 w-full gap-2 text-base" :disabled="!canConfirm" @click="confirm">
         <Loader2 v-if="busy" class="size-4 animate-spin" />
         {{ busy ? 'Memproses…' : 'Selesaikan Pembayaran' }}
       </Button>
