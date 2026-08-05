@@ -17,9 +17,9 @@ onMounted(() => {
 </script>
 
 <template>
-  <!-- Frame mobile: dipusatkan di layar lebar, full di HP -->
+  <!-- Frame mobile: full-width di HP, baru dipusatkan/di-cap di layar ≥sm (tablet/desktop) -->
   <div
-    class="mx-auto flex h-full max-w-md flex-col overflow-hidden bg-background shadow-xl sm:h-screen"
+    class="mx-auto flex h-full w-full flex-col overflow-hidden bg-background sm:h-screen sm:max-w-md sm:shadow-xl"
   >
     <main class="no-scrollbar flex-1 overflow-y-auto">
       <RouterView v-slot="{ Component }">
