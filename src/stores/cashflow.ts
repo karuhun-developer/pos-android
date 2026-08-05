@@ -4,8 +4,9 @@ import { getDb } from '@/db/sqlite'
 import { CashflowEntryRepository } from '@/repositories/cashflowEntry.repo'
 import { CashflowCategoryRepository } from '@/repositories/cashflowCategory.repo'
 import type { CashflowCategory, CashflowEntry } from '@/db/types'
-import { nowMs } from '@/lib/datetime'
+import { nowMs, formatDateTime } from '@/lib/datetime'
 import { presetRange, type DateRange } from '@/lib/dateRange'
+import type { ExportSheet } from '@/lib/xlsx'
 
 export interface NewEntry {
   categoryId: string
@@ -136,6 +137,51 @@ export const useCashflowStore = defineStore('cashflow', () => {
     await load()
   }
 
+  // Bangun sheet Excel untuk rentang (independen dari `range` halaman).
+  async function buildExport(r: DateRange): Promise<ExportSheet[]> {
+    if (categories.value.length === 0) categories.value = await catRepo().listAll()
+    const rows = await entryRepo().listBetween(r.from, r.to, 100000)
+    const detail = rows.map((e) => ({
+      Tanggal: formatDateTime(e.occurred_at),
+      Tipe: e.direction === 'debit' ? 'Pemasukan' : 'Pengeluaran',
+      Kategori: categoryName(e.category_id),
+      Sumber: e.source === 'sale' ? 'Penjualan' : 'Manual',
+      Nominal: e.amount,
+      Catatan: e.note ?? '',
+    }))
+
+    // Ringkasan per kategori + total.
+    const byCat = new Map<string, { name: string; type: string; total: number }>()
+    let income = 0
+    let expense = 0
+    for (const e of rows) {
+      if (e.direction === 'debit') income += e.amount
+      else expense += e.amount
+      const k = e.category_id ?? 'none'
+      const cat = category(e.category_id)
+      if (!byCat.has(k)) {
+        byCat.set(k, {
+          name: categoryName(e.category_id),
+          type: cat?.type === 'income' ? 'Pemasukan' : cat?.type === 'expense' ? 'Pengeluaran' : '-',
+          total: 0,
+        })
+      }
+      byCat.get(k)!.total += e.amount
+    }
+    const summaryRows: Record<string, string | number>[] = Array.from(byCat.values())
+      .sort((a, b) => b.total - a.total)
+      .map((c) => ({ Kategori: c.name, Tipe: c.type, Total: c.total }))
+    summaryRows.push({ Kategori: '', Tipe: '', Total: '' })
+    summaryRows.push({ Kategori: 'Total Pemasukan', Tipe: '', Total: income })
+    summaryRows.push({ Kategori: 'Total Pengeluaran', Tipe: '', Total: expense })
+    summaryRows.push({ Kategori: 'Saldo (Net)', Tipe: '', Total: income - expense })
+
+    return [
+      { name: 'Cashflow', rows: detail },
+      { name: 'Ringkasan', rows: summaryRows },
+    ]
+  }
+
   return {
     entries,
     categories,
@@ -154,5 +200,6 @@ export const useCashflowStore = defineStore('cashflow', () => {
     createCategory,
     renameCategory,
     removeCategory,
+    buildExport,
   }
 })

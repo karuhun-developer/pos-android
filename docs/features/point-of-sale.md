@@ -32,6 +32,10 @@ mencatat pemasukan ke cashflow.
 - `sales.number` = `{PREFIX}-{YYYYMMDD}-{seq}`; `PREFIX` dari `device_id`, `seq` =
   jumlah sale hari yang sama + 1 → unik walau offline & multi-device.
 - Uang = INTEGER minor units (rupiah bulat), tanpa float.
+- **Riwayat transaksi:** filter tanggal (preset + kustom, default bulan berjalan) +
+  **Export Excel** (ikon unduh di header → modal filter + loading). `.xlsx` 2 sheet:
+  `Transaksi` (per struk) + `Item` (rincian item). Native → share sheet, web →
+  unduh. Lihat `sales.buildExport()` + `SaleItemRepository.listBetween` + `src/lib/xlsx.ts`.
 
 ### Catatan korektness transaksi
 - `SqliteDb.transaction` **reentran** pada instance yang sama (`this.inTx`); di

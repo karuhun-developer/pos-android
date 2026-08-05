@@ -5,6 +5,24 @@ Tiap phase = satu rilis minor.
 
 ## [Unreleased]
 
+### Added — Export Excel (Transaksi & Cashflow)
+- **Export ke Excel `.xlsx`** dari halaman Transaksi & Cashflow (ikon unduh di
+  header → **modal** dengan **filter tanggal** yang sama seperti di halaman:
+  preset Hari ini/Kemarin/Minggu ini/Bulan ini + kustom) + **loading state**
+  ("Menyiapkan…") saat file dibangun.
+- **Native (Android):** file ditulis ke cache lalu dibuka via **share sheet**
+  (WA/Drive/email). **Web:** unduh langsung. (`src/lib/xlsx.ts`,
+  `@capacitor/filesystem` + `@capacitor/share`.)
+- **Transaksi** → 2 sheet: `Transaksi` (per struk: metode, status, subtotal,
+  diskon, pajak, total, bayar, kembali) + `Item` (rincian item per struk).
+  **Cashflow** → 2 sheet: `Cashflow` (per entri) + `Ringkasan` (total per kategori
+  + pemasukan/pengeluaran/saldo). Uang diekspor sebagai angka mentah agar bisa
+  dijumlah di Excel.
+- Query per rentang independen dari filter halaman (`SaleItemRepository.listBetween`
+  join `sales`); SheetJS di-*lazy-load* (chunk terpisah, hanya saat export).
+- Komponen `src/components/common/ExportDialog.vue` (reusable: date filter +
+  loading + error state).
+
 ### Added — Phase 7: Build Android
 - **Platform Android (Capacitor) ditambahkan & terverifikasi jalan** di device via
   Android Studio. Workflow: `npm run build && npx cap sync android`, atau

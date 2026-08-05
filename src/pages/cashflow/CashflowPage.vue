@@ -1,13 +1,14 @@
 <script setup lang="ts">
-import { onMounted, computed } from 'vue'
+import { onMounted, computed, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import DateRangeFilter from '@/components/common/DateRangeFilter.vue'
+import ExportDialog from '@/components/common/ExportDialog.vue'
 import { Button } from '@/components/ui/button'
 import {
-  Wallet, Plus, Tag, ArrowDownLeft, ArrowUpRight, Lock,
+  Wallet, Plus, Tag, ArrowDownLeft, ArrowUpRight, Lock, Download,
 } from 'lucide-vue-next'
 import { useCashflowStore } from '@/stores/cashflow'
 import { formatRupiah } from '@/lib/money'
@@ -20,6 +21,8 @@ const cashflow = useCashflowStore()
 const { entries, summary, byCategory, range } = storeToRefs(cashflow)
 
 const label = computed(() => rangeLabel(range.value))
+
+const exportOpen = ref(false)
 
 // Kelompokkan entri per hari.
 const groups = computed(() => {
@@ -49,6 +52,13 @@ function openEntry(e: CashflowEntry) {
   <div>
     <AppHeader title="Cashflow" :subtitle="label">
       <template #actions>
+        <button
+          class="flex size-9 items-center justify-center rounded-full text-foreground hover:bg-accent"
+          aria-label="Export Excel"
+          @click="exportOpen = true"
+        >
+          <Download class="size-5" />
+        </button>
         <RouterLink to="/cashflow/categories">
           <Button variant="outline" size="sm" class="gap-1.5" title="Kelola kategori">
             <Tag class="size-4" />
@@ -167,5 +177,13 @@ function openEntry(e: CashflowEntry) {
     >
       <Plus class="size-6" />
     </button>
+
+    <ExportDialog
+      v-model:open="exportOpen"
+      title="Export Cashflow"
+      filename-base="cashflow"
+      :initial-range="range"
+      :build-sheets="cashflow.buildExport"
+    />
   </div>
 </template>

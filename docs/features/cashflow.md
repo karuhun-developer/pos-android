@@ -20,6 +20,12 @@ termasuk entri manual seperti gaji karyawan atau belanja stok.
   `amount`, `source` (`manual`/`sale`), `source_ref`, `note`, `occurred_at`, `session_id`.
 - Entri dari checkout dibuat otomatis (`source='sale'`) — read-only di ledger.
 - `direction` diturunkan dari `type` kategori (income→debit, expense→credit).
+- **Filter tanggal** (preset Hari ini/Kemarin/Minggu ini/Bulan ini + kustom) —
+  `entries`, ringkasan, & breakdown mengikuti rentang aktif. Default bulan berjalan.
+- **Export Excel** (ikon unduh di header) → modal filter tanggal + tombol export
+  (loading state). Menghasilkan `.xlsx` 2 sheet: `Cashflow` (per entri) +
+  `Ringkasan` (total per kategori + pemasukan/pengeluaran/saldo). Native → share
+  sheet, web → unduh. Lihat `cashflow.buildExport()` + `src/lib/xlsx.ts`.
 
 ## Kode
 - `src/repositories/cashflowCategory.repo.ts`, `cashflowEntry.repo.ts`

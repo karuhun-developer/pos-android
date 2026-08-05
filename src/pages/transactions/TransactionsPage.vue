@@ -1,12 +1,13 @@
 <script setup lang="ts">
-import { onMounted, computed } from 'vue'
+import { onMounted, computed, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import DateRangeFilter from '@/components/common/DateRangeFilter.vue'
+import ExportDialog from '@/components/common/ExportDialog.vue'
 import { Badge } from '@/components/ui/badge'
-import { Receipt, ChevronRight } from 'lucide-vue-next'
+import { Receipt, ChevronRight, Download } from 'lucide-vue-next'
 import { useSalesStore } from '@/stores/sales'
 import { formatRupiah } from '@/lib/money'
 import { formatTime, formatDate, dayKey } from '@/lib/datetime'
@@ -17,6 +18,8 @@ const sales = useSalesStore()
 const { recent, summary, range } = storeToRefs(sales)
 
 const label = computed(() => rangeLabel(range.value))
+
+const exportOpen = ref(false)
 
 const PAY_LABEL: Record<string, string> = { cash: 'Tunai', qris: 'QRIS', transfer: 'Transfer' }
 
@@ -41,7 +44,17 @@ onMounted(() => sales.load())
 
 <template>
   <div>
-    <AppHeader title="Transaksi" :subtitle="`${label}: ${summary.count} transaksi`" />
+    <AppHeader title="Transaksi" :subtitle="`${label}: ${summary.count} transaksi`">
+      <template #actions>
+        <button
+          class="flex size-9 items-center justify-center rounded-full text-foreground hover:bg-accent"
+          aria-label="Export Excel"
+          @click="exportOpen = true"
+        >
+          <Download class="size-5" />
+        </button>
+      </template>
+    </AppHeader>
 
     <!-- Filter tanggal -->
     <DateRangeFilter
@@ -95,6 +108,14 @@ onMounted(() => sales.load())
       :icon="Receipt"
       title="Tidak ada transaksi"
       :description="`Tidak ada transaksi pada rentang ${label.toLowerCase()}. Coba ubah filter tanggal.`"
+    />
+
+    <ExportDialog
+      v-model:open="exportOpen"
+      title="Export Transaksi"
+      filename-base="transaksi"
+      :initial-range="range"
+      :build-sheets="sales.buildExport"
     />
   </div>
 </template>

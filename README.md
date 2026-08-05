@@ -67,6 +67,7 @@ Salin `.env.example` → `.env`:
 | 6 | Kontrak API v1 + backend POS Pro | ✅ |
 | 6C | Integrasi FE ↔ sync (client, account, sync store, Connect) + Google native | ✅ |
 | 7 | Build Android | ✅ |
+| — | Export Excel `.xlsx` (Transaksi & Cashflow, filter tanggal) | ✅ |
 | — | **Printer thermal** (Bluetooth/USB ESC/POS) | 🟡 menyusul |
 
 ## Dokumentasi
