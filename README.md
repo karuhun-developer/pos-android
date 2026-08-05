@@ -8,7 +8,8 @@ online/Google, sync dua arah, plugin tambahan) tanpa mengubah core.
 - **App id:** `com.karuhundeveloper.poskacaw`
 - **Backend (opsional):** [POS Pro](https://github.com/karuhun-developer/pos-web) — Laravel + Sanctum
 - **Status:** Phase 0–7 selesai (offline penuh + sync + build Android jalan).
-  Printer thermal masih menyusul — lihat [Roadmap](#roadmap).
+  Printer thermal: layer software ESC/POS sudah siap, transport native BT/USB
+  menyusul — lihat [Roadmap](#roadmap).
 
 **Stack:** Vue 3 · Vite · TypeScript · Tailwind v4 · shadcn-vue (reka-ui) · Pinia ·
 vue-router · **Capacitor 8** (Android + web dev) · **SQLite**
@@ -68,7 +69,8 @@ Salin `.env.example` → `.env`:
 | 6C | Integrasi FE ↔ sync (client, account, sync store, Connect) + Google native | ✅ |
 | 7 | Build Android | ✅ |
 | — | Export Excel `.xlsx` (Transaksi & Cashflow, filter tanggal) | ✅ |
-| — | **Printer thermal** (Bluetooth/USB ESC/POS) | 🟡 menyusul |
+| — | Printer thermal — layer software ESC/POS (encoder + capability + setelan) | ✅ |
+| — | Printer thermal — transport native Bluetooth/USB | 🟡 menyusul |
 
 ## Dokumentasi
 

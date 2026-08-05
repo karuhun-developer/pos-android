@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Printer, Receipt } from 'lucide-vue-next'
 import { useSalesStore } from '@/stores/sales'
 import { useSettingsStore } from '@/stores/settings'
+import { usePrinterStore } from '@/stores/printer'
 import { capabilities } from '@/services/capabilities/registry'
 import type { PrinterCapability } from '@/services/capabilities/registry'
 import { buildReceipt } from '@/lib/receipt'
@@ -38,6 +39,7 @@ async function printReceipt() {
     buildReceipt(sale.value, items.value, {
       storeName: settings.storeName,
       storeOwner: settings.storeOwner,
+      width: usePrinterStore().paperWidth,
     }),
   )
 }

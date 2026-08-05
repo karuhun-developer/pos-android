@@ -18,6 +18,7 @@ import { useCartStore } from '@/stores/cart'
 import { useSalesStore } from '@/stores/sales'
 import { useSettingsStore } from '@/stores/settings'
 import { useCashierStore } from '@/stores/cashier'
+import { usePrinterStore } from '@/stores/printer'
 import { capabilities } from '@/services/capabilities/registry'
 import type { PrinterCapability } from '@/services/capabilities/registry'
 import type { CheckoutResult } from '@/services/checkout.service'
@@ -92,6 +93,7 @@ async function printReceipt() {
     buildReceipt(lastResult.value.sale, lastResult.value.items, {
       storeName: settings.storeName,
       storeOwner: settings.storeOwner,
+      width: usePrinterStore().paperWidth,
     }),
   )
 }

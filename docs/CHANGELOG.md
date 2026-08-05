@@ -5,6 +5,24 @@ Tiap phase = satu rilis minor.
 
 ## [Unreleased]
 
+### Added — Printer thermal (layer software ESC/POS)
+- **Encoder ESC/POS** (`src/lib/escpos.ts`): `encodeReceipt(job) → Uint8Array`
+  (init, align, bold, ukuran, potong). Murni & bebas hardware.
+- **Seam transport** (`printers/transport.ts`): interface `PrinterTransport`
+  (available/connections/list/print) + `nullTransport` default; plugin native
+  BT/USB dipasang belakangan via `setPrinterTransport()` — **tanpa ubah core**.
+- **`ThermalPrinter`** capability (`printers/thermalPrinter.ts`) menggantikan
+  WebPreviewPrinter di build native; `isAvailable()` = transport ada + printer
+  terpilih. Web tetap pakai WebPreviewPrinter (dialog browser).
+- **Halaman Printer** dirombak: pilih koneksi (Bluetooth/USB) → pindai → pilih
+  device (tersimpan device-local di `settings`), pilih lebar kertas 58mm/80mm,
+  Test Print + Hapus, dan status "transport belum terpasang" yang informatif.
+  `src/stores/printer.ts` dimuat saat boot → cetak ulang pakai lebar kertas benar.
+- Catatan: **belum ada plugin Capacitor 8 tunggal untuk BT Classic + USB** →
+  transport native (rencana: bungkus DantSu ESCPOS-ThermalPrinter-Android)
+  menyusul; layer software di atas sudah final. Lihat
+  `docs/features/printer-plugin.md`.
+
 ### Added — Export Excel (Transaksi & Cashflow)
 - **Export ke Excel `.xlsx`** dari halaman Transaksi & Cashflow (ikon unduh di
   header → **modal** dengan **filter tanggal** yang sama seperti di halaman:

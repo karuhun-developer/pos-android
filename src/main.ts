@@ -8,6 +8,7 @@ import { registerCapabilities } from '@/services/capabilities/bootstrap'
 import { useSettingsStore } from '@/stores/settings'
 import { useAccountStore } from '@/stores/account'
 import { useSyncStore } from '@/stores/sync'
+import { usePrinterStore } from '@/stores/printer'
 
 async function bootstrap() {
   // Urutan penting: DB dulu -> capabilities -> pinia -> load settings -> router
@@ -25,6 +26,8 @@ async function bootstrap() {
 
   // Muat setelan (device_id, tema, dll) sebelum UI tampil.
   await useSettingsStore().load()
+  // Muat printer tersimpan (device + lebar kertas) → cetak ulang pakai setelan benar.
+  await usePrinterStore().load()
 
   // Muat akun cloud (token/toko aktif). Kalau sudah login, hidupkan sync engine.
   const account = useAccountStore()
