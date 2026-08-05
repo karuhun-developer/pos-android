@@ -5,6 +5,23 @@ Tiap phase = satu rilis minor.
 
 ## [Unreleased]
 
+### Added — Printer thermal: transport native Bluetooth & USB
+- **Plugin native `ThermalPrinter`** (`android/app/src/main/java/.../
+  ThermalPrinterPlugin.java`, didaftarkan di `MainActivity.java`): `listBluetooth`,
+  `listUsb`, `print({connection,id,data(base64)})`.
+- **Bluetooth Classic (SPP):** `BluetoothSocket` UUID `0x1101`, IO di background
+  thread, izin **BLUETOOTH_CONNECT** (API 31+) via sistem izin Capacitor; hanya
+  device paired (tanpa SCAN/lokasi).
+- **USB:** cari interface printer (kelas 7) → bulk-OUT endpoint → izin per-device
+  (`UsbManager.requestPermission` + `BroadcastReceiver`) → `bulkTransfer` per 16KB.
+- **Tanpa dependency eksternal (bukan DantSu):** byte ESC/POS sudah dibentuk di JS,
+  jadi lapisan native cuma "kabel" — pakai API Android bawaan, nol dep Gradle.
+- **JS:** `printers/nativePlugin.ts` (`registerPlugin('ThermalPrinter')`) +
+  `printers/capacitorThermalTransport.ts`; dipasang di `bootstrap.ts` lewat
+  `setPrinterTransport(...)` (native saja) — **tanpa ubah encoder/capability/UI/
+  checkout**. Manifest: BLUETOOTH(+ADMIN) `maxSdkVersion=30`, BLUETOOTH_CONNECT,
+  `uses-feature usb.host`.
+
 ### Added — Printer thermal (layer software ESC/POS)
 - **Encoder ESC/POS** (`src/lib/escpos.ts`): `encodeReceipt(job) → Uint8Array`
   (init, align, bold, ukuran, potong). Murni & bebas hardware.
