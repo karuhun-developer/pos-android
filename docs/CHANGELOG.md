@@ -5,6 +5,19 @@ Tiap phase = satu rilis minor.
 
 ## [Unreleased]
 
+### Added — Phase 7: Build Android
+- **Platform Android (Capacitor) ditambahkan & terverifikasi jalan** di device via
+  Android Studio. Workflow: `npm run build && npx cap sync android`, atau
+  `npm run android:open` (WSL → Android Studio Windows, `scripts/open-android.sh`).
+- `org.gradle.vfs.watch=false` (`android/gradle.properties`) — atasi error
+  "Incorrect function" saat Gradle build file di filesystem WSL 9p lewat Windows.
+- README diperbarui (status Phase 0–7, cara build Android, konfigurasi `.env`).
+
+### Fixed
+- **Frame app full-width di HP** (`App.vue`): `max-w-md` sebelumnya di-cap untuk
+  semua ukuran → gutter kiri-kanan di HP >448px CSS-px. Kini full-width default;
+  center + cap + shadow hanya di layar `≥sm` (tablet/desktop).
+
 ### Added — Google Sign-In native (Android)
 - **Login Google di-handle native** di Android (`@capgo/capacitor-social-login`):
   `webClientId` = Web OAuth Client ID dipakai sebagai `server_client_id`, plugin

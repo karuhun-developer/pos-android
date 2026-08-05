@@ -1,6 +1,6 @@
 # Fitur: Sync ke POS Pro (Cloud)
 
-**Status:** 🧩 Kontrak API v1 final + backend POS Pro jalan · adapter FE menyusul (Phase 6C) · **Backend:** POS Pro (Laravel, Sanctum bearer)
+**Status:** ✅ Kontrak API v1 + backend POS Pro + adapter FE (Phase 6C) jalan · **Backend:** POS Pro (Laravel, Sanctum bearer)
 
 > 📄 **Kontrak API:** [`docs/api/pos-pro-api-v1.md`](../api/pos-pro-api-v1.md) —
 > sumber kebenaran endpoint, payload per entity, aturan LWW/tombstone, RBAC, media.
@@ -30,14 +30,22 @@ login online (email/Google), lalu sinkronisasi dua arah.
 - **Backend POS Pro** (Laravel) dibangun penuh: auth Google/Sanctum, sync
   push/pull 8 entity, tenancy multi-toko, RBAC, media storage, OpenAPI Scramble.
 
-## Phase 6C (menyusul) — adapter FE
-- Implementasi `HttpSyncAdapter` (map ke `/sync/push` & `/sync/pull` kontrak v1) +
-  `GoogleAuthProvider`/`JwtAuthProvider` (bearer token dari `/auth/*`).
-- UI "Sambungkan Akun" + tombol "Sync sekarang" + indikator status di store `sync`.
-- Catatan mapping: `acked`/`rejected` di-key **outbox id**; `pull.cursor` →
+## Phase 6C (selesai) — adapter FE
+- **HTTP client** `src/services/api/client.ts` (map ke `/sync/push` & `/sync/pull`
+  kontrak v1) + `config.ts` (baca `VITE_API_BASE_URL`, `VITE_GOOGLE_CLIENT_ID`).
+- **Store `account`** (token Sanctum, login email/password + register + **Google
+  native** Android, toko aktif, ganti/tambah outlet) + **store `sync`** + `SyncEngine`
+  (push outbox → pull per-entity LWW/tombstone, auto saat online).
+- **UI Sambungkan** (`/connect`, `ConnectPage.vue`): Masuk/Daftar, pilih & ganti
+  outlet (dengan modal konfirmasi), "Sync sekarang" + status.
+- Mapping: `acked`/`rejected` di-key **outbox id**; `pull.cursor` →
   `sync_state.last_pulled_at`; header `Authorization: Bearer`, `X-Store-Id`,
-  `X-Device-Id`.
+  `X-Device-Id`. Ganti outlet → `resetLocalBusinessData()` lalu re-pull.
 
 ## Kode
-- `src/services/auth/types.ts`, `src/services/sync/types.ts`, `SyncEngine.ts`
+- `src/services/api/client.ts`, `config.ts`
+- `src/services/sync/SyncEngine.ts`, `applyPull.ts`, `types.ts`
+- `src/services/auth/google.ts`, `src/services/auth/types.ts`
+- `src/stores/account.ts`, `src/stores/sync.ts`, `src/db/reset.ts`
+- `src/pages/settings/ConnectPage.vue`
 - `src/repositories/outbox.repo.ts`, `syncState.repo.ts`
