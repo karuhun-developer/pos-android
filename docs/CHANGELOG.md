@@ -5,6 +5,21 @@ Tiap phase = satu rilis minor.
 
 ## [Unreleased]
 
+### Added — Google Sign-In native (Android)
+- **Login Google di-handle native** di Android (`@capgo/capacitor-social-login`):
+  `webClientId` = Web OAuth Client ID dipakai sebagai `server_client_id`, plugin
+  balikin **ID token** yang diverifikasi server (`POST /auth/google`). Web tetap
+  email/password.
+- **Debug keystore bersama di-commit** (`android/debug.keystore`, kredensial
+  standar `android`) + `signingConfigs.debug` di `android/app/build.gradle` →
+  **SHA-1 konsisten di semua mesin** (WSL/Windows/CI), cukup daftar SHA-1 sekali.
+  Keystore debug bukan rahasia.
+- `mapGoogleError()` (`src/services/auth/google.ts`): error native → pesan
+  actionable (DEVELOPER_ERROR/SHA-1, code 10, cancel, network).
+- Docs baru `docs/features/google-signin-android.md`: langkah registrasi OAuth di
+  Google Cloud Console (package `com.karuhundeveloper.poskacaw` + SHA-1
+  `55:E5:…:7E:9C`), pakai **Web** Client ID di `VITE_GOOGLE_CLIENT_ID`.
+
 ### Added — Phase 6C: Integrasi FE ↔ POS Pro (sync aktif)
 - **HTTP client** (`src/services/api/`): `ApiClient` (auth/sync/stores/health) +
   `config.ts` baca `VITE_API_BASE_URL` & `VITE_GOOGLE_CLIENT_ID` dari `.env`.
