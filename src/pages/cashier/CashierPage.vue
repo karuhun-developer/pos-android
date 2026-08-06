@@ -80,10 +80,10 @@ function diffLabel(d: number | null): string {
     <div class="space-y-5 p-4">
       <!-- Sesi aktif -->
       <template v-if="isOpen && current && summary">
-        <Card class="border-emerald-500/30 bg-emerald-500/5">
+        <Card class="border-success/30 bg-success/5">
           <CardContent class="space-y-4 p-4">
             <div class="flex items-center gap-3">
-              <div class="flex size-11 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-600">
+              <div class="flex size-11 items-center justify-center rounded-xl bg-success/15 text-success">
                 <DoorOpen class="size-5" />
               </div>
               <div class="flex-1">
@@ -92,7 +92,7 @@ function diffLabel(d: number | null): string {
                   Dibuka {{ formatDateTime(current.opened_at) }}
                 </p>
               </div>
-              <Badge class="bg-emerald-600">Aktif</Badge>
+              <Badge class="bg-success">Aktif</Badge>
             </div>
 
             <div class="grid grid-cols-2 gap-3">
@@ -113,9 +113,9 @@ function diffLabel(d: number | null): string {
                   </span>
                 </p>
               </div>
-              <div class="rounded-xl bg-emerald-500/10 p-3">
-                <p class="text-xs text-emerald-700">Perkiraan di laci</p>
-                <p class="mt-0.5 text-sm font-bold text-emerald-700">
+              <div class="rounded-xl bg-success/10 p-3">
+                <p class="text-xs text-success">Perkiraan di laci</p>
+                <p class="mt-0.5 text-sm font-bold text-success">
                   {{ formatRupiah(summary.expectedCash) }}
                 </p>
               </div>
@@ -175,7 +175,7 @@ function diffLabel(d: number | null): string {
           >
             <div
               class="flex size-10 shrink-0 items-center justify-center rounded-xl"
-              :class="s.status === 'open' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-muted text-muted-foreground'"
+              :class="s.status === 'open' ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground'"
             >
               <component :is="s.status === 'open' ? DoorOpen : DoorClosed" class="size-5" />
             </div>
@@ -189,12 +189,12 @@ function diffLabel(d: number | null): string {
               </p>
             </div>
             <div class="text-right">
-              <Badge v-if="s.status === 'open'" class="bg-emerald-600">Aktif</Badge>
+              <Badge v-if="s.status === 'open'" class="bg-success">Aktif</Badge>
               <template v-else>
                 <p class="text-sm font-semibold">{{ formatRupiah(s.counted_cash ?? 0) }}</p>
                 <p
                   class="text-xs font-medium"
-                  :class="(s.difference ?? 0) === 0 ? 'text-muted-foreground' : (s.difference ?? 0) > 0 ? 'text-emerald-600' : 'text-destructive'"
+                  :class="(s.difference ?? 0) === 0 ? 'text-muted-foreground' : (s.difference ?? 0) > 0 ? 'text-success' : 'text-destructive'"
                 >
                   {{ diffLabel(s.difference) }}
                 </p>
@@ -249,7 +249,7 @@ function diffLabel(d: number | null): string {
           <span class="text-sm text-muted-foreground">Selisih</span>
           <span
             class="text-lg font-bold"
-            :class="difference === 0 ? 'text-emerald-600' : 'text-destructive'"
+            :class="difference === 0 ? 'text-success' : 'text-destructive'"
           >
             {{ difference === 0 ? 'Pas' : (difference > 0 ? '+' : '') + formatRupiah(difference) }}
           </span>

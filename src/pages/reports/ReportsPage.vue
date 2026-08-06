@@ -47,7 +47,8 @@ const chartOptions = computed<ApexOptions>(() => {
       background: 'transparent',
     },
     theme: { mode: dark ? 'dark' : 'light' },
-    colors: source.value === 'sales' ? ['#6366f1'] : ['#10b981', '#f43f5e'],
+    // Charcoal (brand) untuk penjualan; hijau/merah untuk pemasukan/pengeluaran.
+    colors: source.value === 'sales' ? [dark ? '#a1a1aa' : '#3f4756'] : ['#3f9c5a', '#e5484d'],
     plotOptions: { bar: { borderRadius: 4, columnWidth: '58%' } },
     dataLabels: { enabled: false },
     grid: { borderColor: dark ? '#27272a' : '#e5e7eb', strokeDashArray: 4 },
@@ -105,30 +106,32 @@ onMounted(() => reports.load())
         Hari ini · {{ todayLabel }}
       </p>
 
-      <!-- Penjualan hari ini -->
-      <div class="rounded-2xl bg-gradient-to-br from-primary to-primary/80 p-4 text-primary-foreground">
-        <div class="flex items-center gap-1.5 text-xs opacity-85">
-          <ShoppingCart class="size-3.5" /> Penjualan
+      <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <!-- Penjualan hari ini -->
+        <div
+          class="col-span-2 rounded-2xl bg-gradient-to-br from-hero to-hero/90 p-4 text-hero-foreground sm:col-span-1"
+        >
+          <div class="flex items-center gap-1.5 text-xs opacity-85">
+            <ShoppingCart class="size-3.5" /> Penjualan
+          </div>
+          <p class="mt-1 text-2xl font-bold">{{ formatRupiah(todaySalesSummary.total) }}</p>
+          <p class="text-xs opacity-85">{{ todaySalesSummary.count }} transaksi</p>
         </div>
-        <p class="mt-1 text-2xl font-bold">{{ formatRupiah(todaySalesSummary.total) }}</p>
-        <p class="text-xs opacity-85">{{ todaySalesSummary.count }} transaksi</p>
-      </div>
 
-      <!-- Pemasukan vs Pengeluaran hari ini -->
-      <div class="grid grid-cols-2 gap-3">
+        <!-- Pemasukan vs Pengeluaran hari ini -->
         <div class="rounded-2xl border border-border bg-card p-4">
           <div class="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <ArrowDownLeft class="size-3.5 text-emerald-600" /> Pemasukan
+            <ArrowDownLeft class="size-3.5 text-success" /> Pemasukan
           </div>
-          <p class="mt-1 text-lg font-bold text-emerald-600">
+          <p class="mt-1 text-lg font-bold text-success">
             {{ formatRupiah(todayCashflow.income) }}
           </p>
         </div>
         <div class="rounded-2xl border border-border bg-card p-4">
           <div class="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <ArrowUpRight class="size-3.5 text-rose-600" /> Pengeluaran
+            <ArrowUpRight class="size-3.5 text-destructive" /> Pengeluaran
           </div>
-          <p class="mt-1 text-lg font-bold text-rose-600">
+          <p class="mt-1 text-lg font-bold text-destructive">
             {{ formatRupiah(todayCashflow.expense) }}
           </p>
         </div>

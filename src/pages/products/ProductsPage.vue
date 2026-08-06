@@ -97,7 +97,7 @@ function setFilter(id: string | null) {
           </div>
         </div>
         <div class="text-right">
-          <p class="text-sm font-semibold">{{ formatRupiah(p.price) }}</p>
+          <p class="text-sm font-bold text-info">{{ formatRupiah(p.price) }}</p>
           <Badge v-if="!p.active" variant="secondary" class="mt-0.5">Nonaktif</Badge>
         </div>
       </RouterLink>
@@ -117,7 +117,7 @@ function setFilter(id: string | null) {
     <!-- FAB -->
     <button
       v-if="filtered.length"
-      class="fixed bottom-20 right-1/2 z-30 flex size-14 translate-x-[min(11.5rem,45vw)] items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition active:scale-95"
+      class="fixed bottom-20 right-5 z-30 md:bottom-6 flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition active:scale-95"
       @click="router.push('/products/new')"
     >
       <Plus class="size-6" />

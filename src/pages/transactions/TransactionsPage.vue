@@ -63,7 +63,7 @@ onMounted(() => sales.load())
     />
 
     <!-- Ringkasan rentang aktif -->
-    <div class="border-b border-border bg-gradient-to-br from-primary to-primary/80 px-5 py-5 text-primary-foreground">
+    <div class="border-b border-border bg-gradient-to-br from-hero to-hero/90 px-5 py-5 text-hero-foreground">
       <p class="text-xs opacity-80">Penjualan · {{ label }}</p>
       <p class="mt-1 text-2xl font-bold">{{ formatRupiah(summary.total) }}</p>
       <p class="mt-0.5 text-xs opacity-80">{{ summary.count }} transaksi</p>

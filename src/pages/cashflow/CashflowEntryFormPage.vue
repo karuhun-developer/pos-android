@@ -95,7 +95,7 @@ async function remove() {
         <button
           type="button"
           class="flex items-center justify-center gap-2 rounded-xl border p-3 text-sm font-medium transition"
-          :class="cn(type === 'income' ? 'border-emerald-500 bg-emerald-500/5 text-emerald-600' : 'border-border text-muted-foreground')"
+          :class="cn(type === 'income' ? 'border-success bg-success/5 text-success' : 'border-border text-muted-foreground')"
           @click="setType('income')"
         >
           <ArrowDownLeft class="size-4" /> Pemasukan
@@ -103,7 +103,7 @@ async function remove() {
         <button
           type="button"
           class="flex items-center justify-center gap-2 rounded-xl border p-3 text-sm font-medium transition"
-          :class="cn(type === 'expense' ? 'border-rose-500 bg-rose-500/5 text-rose-600' : 'border-border text-muted-foreground')"
+          :class="cn(type === 'expense' ? 'border-destructive bg-destructive/5 text-destructive' : 'border-border text-muted-foreground')"
           @click="setType('expense')"
         >
           <ArrowUpRight class="size-4" /> Pengeluaran

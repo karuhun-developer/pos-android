@@ -5,6 +5,33 @@ Tiap phase = satu rilis minor.
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-08-06
+
+### Changed — Redesign UI + dukungan tablet/iPad
+- **Tema warna baru — monokrom** (`src/assets/index.css`): latar **abu-abu netral
+  sejuk** + kartu putih + **aksen hitam/charcoal** (`--primary`) untuk tombol, chip
+  terpilih & nav aktif. **Biru (`--info`) khusus harga/uang**, dan **`--hero`**
+  (charcoal, konsisten light & dark) untuk header gelap. Dark mode = charcoal dengan
+  aksen terang. Terang jadi default, dark tetap didukung. `--radius` 0.75rem →
+  **1rem**. Semua chrome ikut otomatis karena berbasis token. Referensi: Kopag
+  Mobile POS. Spec lengkap di **`docs/DESIGN.md`** (baru).
+- **Layout responsif** — di **≥md (tablet/iPad)** muncul **sidebar kiri**
+  (`src/components/layout/SideNav.vue`, menu lengkap) & bottom-nav disembunyikan;
+  di HP tetap `BottomNav`. Sumber item nav disatukan di
+  **`src/components/layout/navItems.ts`** (dipakai BottomNav + SideNav). Frame app
+  tak lagi di-cap `max-w-md` global (`src/App.vue`).
+- **Home** (`src/pages/HomePage.vue`): tetap desain awal — **header hero gelap**
+  (gradient charcoal) berisi profil toko + banner POS Pro, lalu panel menu
+  membulat (`-mt-6 rounded-t-3xl`) yang menimpa hero; grid menu responsif `2→3→4`.
+- **Warna semantik konsisten** — `emerald/rose/amber` yang di-hardcode di
+  Cashflow/POS/Kasir/Transaksi/Reports dirutekan ke token **`success`/`destructive`/
+  `warning`**; header summary pakai **`hero`**; harga produk pakai **`text-info`**
+  (biru). Grid produk & POS melebar di tablet; FAB & save-bar diposisikan ulang
+  agar benar di layout lebar. Grafik Reports: penjualan charcoal, kas hijau/merah.
+- **Tombol "Masuk dengan Google"** (`src/pages/settings/ConnectPage.vue`) dibuat
+  sesuai brand guideline Google: tombol putih ber-border, **logo G 4 warna**, +
+  spinner saat loading.
+
 ### Fixed — Kategori cashflow default dijamin selalu ada
 - Sebelumnya default cuma di-seed **sekali** di migration v2 → setelah **pindah
   outlet** (`resetLocalBusinessData` menghapus `cashflow_categories`, termasuk

@@ -40,7 +40,7 @@ const qrisError = ref('')
 const qrisPreview = ref<string | null>(null)
 
 const SPLASH_BGS: Array<{ id: SplashBg; label: string; swatch: string }> = [
-  { id: 'brand', label: 'Brand', swatch: 'bg-gradient-to-b from-primary to-primary/70' },
+  { id: 'brand', label: 'Brand', swatch: 'bg-gradient-to-b from-hero to-hero/80' },
   { id: 'light', label: 'Terang', swatch: 'bg-background border border-border' },
   { id: 'dark', label: 'Gelap', swatch: 'bg-slate-900' },
 ]

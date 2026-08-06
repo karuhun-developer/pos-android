@@ -105,7 +105,7 @@ async function printReceipt() {
           </div>
           <div v-if="sale.change_due > 0" class="flex justify-between text-sm">
             <span class="text-muted-foreground">Kembalian</span>
-            <span class="font-semibold text-emerald-600">{{ formatRupiah(sale.change_due) }}</span>
+            <span class="font-semibold text-success">{{ formatRupiah(sale.change_due) }}</span>
           </div>
         </div>
       </div>

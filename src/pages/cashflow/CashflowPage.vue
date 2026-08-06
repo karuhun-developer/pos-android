@@ -75,7 +75,7 @@ function openEntry(e: CashflowEntry) {
     />
 
     <!-- Ringkasan rentang aktif -->
-    <div class="border-b border-border bg-gradient-to-br from-primary to-primary/80 px-5 py-5 text-primary-foreground">
+    <div class="border-b border-border bg-gradient-to-br from-hero to-hero/90 px-5 py-5 text-hero-foreground">
       <p class="text-xs opacity-80">Saldo · {{ label }}</p>
       <p class="mt-1 text-2xl font-bold">{{ formatRupiah(summary.net) }}</p>
       <div class="mt-3 grid grid-cols-2 gap-3">
@@ -107,12 +107,12 @@ function openEntry(e: CashflowEntry) {
         >
           <span
             class="size-2 shrink-0 rounded-full"
-            :class="row.category?.type === 'income' ? 'bg-emerald-500' : 'bg-rose-500'"
+            :class="row.category?.type === 'income' ? 'bg-success' : 'bg-destructive'"
           />
           <span class="flex-1 truncate">{{ row.category?.name ?? 'Tanpa kategori' }}</span>
           <span
             class="font-medium"
-            :class="row.category?.type === 'income' ? 'text-emerald-600' : 'text-rose-600'"
+            :class="row.category?.type === 'income' ? 'text-success' : 'text-destructive'"
           >
             {{ formatRupiah(row.total) }}
           </span>
@@ -125,7 +125,7 @@ function openEntry(e: CashflowEntry) {
       <section v-for="g in groups" :key="g.key">
         <div class="flex items-center justify-between bg-muted/40 px-4 py-1.5 text-xs font-medium text-muted-foreground">
           <span>{{ g.label }}</span>
-          <span :class="g.net >= 0 ? 'text-emerald-600' : 'text-rose-600'">
+          <span :class="g.net >= 0 ? 'text-success' : 'text-destructive'">
             {{ g.net >= 0 ? '+' : '' }}{{ formatRupiah(g.net) }}
           </span>
         </div>
@@ -140,7 +140,7 @@ function openEntry(e: CashflowEntry) {
           >
             <div
               class="flex size-10 shrink-0 items-center justify-center rounded-xl"
-              :class="e.direction === 'debit' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-rose-500/10 text-rose-600'"
+              :class="e.direction === 'debit' ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'"
             >
               <component :is="e.direction === 'debit' ? ArrowDownLeft : ArrowUpRight" class="size-5" />
             </div>
@@ -154,7 +154,7 @@ function openEntry(e: CashflowEntry) {
             </div>
             <span
               class="shrink-0 text-sm font-semibold"
-              :class="e.direction === 'debit' ? 'text-emerald-600' : 'text-rose-600'"
+              :class="e.direction === 'debit' ? 'text-success' : 'text-destructive'"
             >
               {{ e.direction === 'debit' ? '+' : '−' }}{{ formatRupiah(e.amount) }}
             </span>
@@ -172,7 +172,7 @@ function openEntry(e: CashflowEntry) {
 
     <!-- FAB tambah -->
     <button
-      class="fixed bottom-20 right-1/2 z-30 flex size-14 translate-x-[min(11.5rem,45vw)] items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition active:scale-95"
+      class="fixed bottom-20 right-5 z-30 md:bottom-6 flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition active:scale-95"
       @click="router.push('/cashflow/new')"
     >
       <Plus class="size-6" />

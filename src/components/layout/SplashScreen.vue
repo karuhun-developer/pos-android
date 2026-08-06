@@ -10,7 +10,7 @@ const media = useMediaStore()
 const { storeName, storeLogo, splashBg } = storeToRefs(settings)
 
 const BG: Record<string, string> = {
-  brand: 'bg-gradient-to-b from-primary to-primary/80 text-primary-foreground',
+  brand: 'bg-gradient-to-b from-hero to-hero/90 text-hero-foreground',
   light: 'bg-background text-foreground',
   dark: 'bg-slate-900 text-white',
 }

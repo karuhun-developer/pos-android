@@ -164,7 +164,7 @@ function confirm() {
       <!-- Kembalian -->
       <div v-if="method === 'cash'" class="flex items-center justify-between px-1">
         <span class="text-sm text-muted-foreground">Kembalian</span>
-        <span class="text-lg font-bold" :class="change > 0 ? 'text-emerald-600' : ''">
+        <span class="text-lg font-bold" :class="change > 0 ? 'text-success' : ''">
           {{ formatRupiah(change) }}
         </span>
       </div>

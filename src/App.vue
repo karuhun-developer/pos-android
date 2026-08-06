@@ -2,12 +2,15 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import BottomNav from '@/components/layout/BottomNav.vue'
+import SideNav from '@/components/layout/SideNav.vue'
 import SplashScreen from '@/components/layout/SplashScreen.vue'
 import { useSettingsStore } from '@/stores/settings'
 import { useHardwareBack } from '@/composables/useHardwareBack'
 
 const route = useRoute()
+// Bottom nav (HP): hanya di halaman utama. Sidebar (tablet): selalu, kecuali layar kunci.
 const showNav = computed(() => !route.meta.hideNav)
+const showSideNav = computed(() => route.name !== 'lock')
 
 // Tombol back hardware Android: mundur/keluar dengan benar (bukan langsung nutup app).
 const { showExitHint } = useHardwareBack()
@@ -21,16 +24,17 @@ onMounted(() => {
 </script>
 
 <template>
-  <!-- Frame mobile: full-width di HP, baru dipusatkan/di-cap di layar ≥sm (tablet/desktop) -->
-  <div
-    class="mx-auto flex h-full w-full flex-col overflow-hidden bg-background sm:h-screen sm:max-w-md sm:shadow-xl"
-  >
-    <main class="no-scrollbar flex-1 overflow-y-auto">
-      <RouterView v-slot="{ Component }">
-        <component :is="Component" />
-      </RouterView>
-    </main>
-    <BottomNav v-if="showNav" />
+  <!-- Shell responsif: sidebar kiri di tablet/desktop (≥md), bottom-nav di HP -->
+  <div class="flex h-full w-full overflow-hidden bg-background sm:h-screen">
+    <SideNav v-if="showSideNav" />
+    <div class="flex min-w-0 flex-1 flex-col overflow-hidden">
+      <main class="no-scrollbar flex-1 overflow-y-auto">
+        <RouterView v-slot="{ Component }">
+          <component :is="Component" />
+        </RouterView>
+      </main>
+      <BottomNav v-if="showNav" />
+    </div>
   </div>
 
   <Transition name="splash">

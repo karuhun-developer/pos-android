@@ -141,7 +141,7 @@ function newTransaction() {
     <RouterLink
       v-if="!cashier.isOpen"
       to="/cashier"
-      class="flex shrink-0 items-center gap-2 border-b border-amber-500/20 bg-amber-500/10 px-4 py-2 text-xs text-amber-700"
+      class="flex shrink-0 items-center gap-2 border-b border-warning/40 bg-warning/15 px-4 py-2 text-xs text-warning-foreground"
     >
       <DoorClosed class="size-3.5" />
       <span class="flex-1">Kasir belum dibuka — transaksi tidak terhitung ke sesi.</span>
@@ -150,7 +150,7 @@ function newTransaction() {
     <RouterLink
       v-else
       to="/cashier"
-      class="flex shrink-0 items-center gap-2 border-b border-emerald-500/20 bg-emerald-500/10 px-4 py-2 text-xs text-emerald-700"
+      class="flex shrink-0 items-center gap-2 border-b border-success/20 bg-success/10 px-4 py-2 text-xs text-success"
     >
       <DoorOpen class="size-3.5" />
       <span class="flex-1">Kasir terbuka · perkiraan laci {{ formatRupiah(cashier.summary?.expectedCash ?? 0) }}</span>
@@ -158,7 +158,10 @@ function newTransaction() {
 
     <!-- Grid produk (area scroll) -->
     <div class="min-h-0 flex-1 overflow-y-auto">
-      <div v-if="filtered.length" class="grid grid-cols-2 gap-3 p-4">
+      <div
+        v-if="filtered.length"
+        class="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
+      >
         <button
           v-for="p in filtered"
           :key="p.id"
@@ -191,7 +194,7 @@ function newTransaction() {
           </div>
           <div class="flex flex-1 flex-col p-2.5">
             <p class="line-clamp-2 text-xs font-medium leading-snug">{{ p.name }}</p>
-            <p class="mt-1 text-sm font-bold text-primary">{{ formatRupiah(p.price) }}</p>
+            <p class="mt-1 text-sm font-bold text-info">{{ formatRupiah(p.price) }}</p>
             <p v-if="p.track_stock" class="text-[11px] text-muted-foreground">Stok {{ p.stock }}</p>
           </div>
         </button>
@@ -233,7 +236,7 @@ function newTransaction() {
     <Teleport to="body">
       <Transition name="fade">
         <div v-if="success && lastResult" class="fixed inset-0 z-[60] mx-auto flex max-w-md flex-col items-center justify-center gap-1 bg-background p-6">
-          <div class="flex size-20 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+          <div class="flex size-20 items-center justify-center rounded-full bg-success/15 text-success">
             <Check class="size-10" />
           </div>
           <p class="mt-4 text-lg font-bold">Transaksi Berhasil</p>
@@ -250,7 +253,7 @@ function newTransaction() {
             </div>
             <div v-if="lastResult.sale.change_due > 0" class="flex justify-between text-sm">
               <span class="text-muted-foreground">Kembalian</span>
-              <span class="font-semibold text-emerald-600">{{ formatRupiah(lastResult.sale.change_due) }}</span>
+              <span class="font-semibold text-success">{{ formatRupiah(lastResult.sale.change_due) }}</span>
             </div>
           </div>
 

@@ -60,7 +60,7 @@ async function remove(c: CashflowCategory) {
         <button
           type="button"
           class="flex items-center justify-center gap-2 rounded-xl border p-2.5 text-sm font-medium transition"
-          :class="cn(newType === 'income' ? 'border-emerald-500 bg-emerald-500/5 text-emerald-600' : 'border-border text-muted-foreground')"
+          :class="cn(newType === 'income' ? 'border-success bg-success/5 text-success' : 'border-border text-muted-foreground')"
           @click="newType = 'income'"
         >
           <ArrowDownLeft class="size-4" /> Pemasukan
@@ -68,7 +68,7 @@ async function remove(c: CashflowCategory) {
         <button
           type="button"
           class="flex items-center justify-center gap-2 rounded-xl border p-2.5 text-sm font-medium transition"
-          :class="cn(newType === 'expense' ? 'border-rose-500 bg-rose-500/5 text-rose-600' : 'border-border text-muted-foreground')"
+          :class="cn(newType === 'expense' ? 'border-destructive bg-destructive/5 text-destructive' : 'border-border text-muted-foreground')"
           @click="newType = 'expense'"
         >
           <ArrowUpRight class="size-4" /> Pengeluaran
@@ -84,8 +84,8 @@ async function remove(c: CashflowCategory) {
 
     <!-- Daftar per tipe -->
     <template v-for="section in [
-      { key: 'income', label: 'Pemasukan', rows: income, icon: ArrowDownLeft, tint: 'bg-emerald-500/10 text-emerald-600' },
-      { key: 'expense', label: 'Pengeluaran', rows: expense, icon: ArrowUpRight, tint: 'bg-rose-500/10 text-rose-600' },
+      { key: 'income', label: 'Pemasukan', rows: income, icon: ArrowDownLeft, tint: 'bg-success/10 text-success' },
+      { key: 'expense', label: 'Pengeluaran', rows: expense, icon: ArrowUpRight, tint: 'bg-destructive/10 text-destructive' },
     ]" :key="section.key">
       <p class="bg-muted/40 px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         {{ section.label }}

@@ -94,6 +94,7 @@ Opsional, biar login Google & sync aktif di APK hasil CI, set **repo Variables**
 ## Dokumentasi
 
 - `docs/PRD.md` — kebutuhan produk & scope
+- `docs/DESIGN.md` — design system (tema warna/token, breakpoint, layout responsif HP↔tablet)
 - `docs/architecture.md` — arsitektur teknis (storage, sync, plugin)
 - `docs/CHANGELOG.md` — riwayat per phase
 - `docs/api/pos-pro-api-v1.md` — kontrak API sync FE↔BE

@@ -233,7 +233,7 @@ async function remove() {
     </div>
 
     <!-- Save bar -->
-    <div class="fixed inset-x-0 bottom-0 z-30 mx-auto max-w-md border-t border-border bg-card p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+    <div class="fixed inset-x-0 bottom-0 z-30 mx-auto max-w-md border-t border-border bg-card p-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:left-64 md:right-0 md:mx-0 md:max-w-none">
       <Button class="w-full" size="lg" :disabled="!canSave || saving" @click="save">
         {{ saving ? 'Menyimpan…' : isEdit ? 'Simpan Perubahan' : 'Simpan Produk' }}
       </Button>
