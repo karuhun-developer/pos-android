@@ -5,6 +5,21 @@ Tiap phase = satu rilis minor.
 
 ## [Unreleased]
 
+### Added — CI: build APK otomatis saat Release + versioning dari tag
+- **Workflow `.github/workflows/release-apk.yml`** (trigger `release: published`):
+  tiap bikin **Release** di GitHub → APK ke-build & **otomatis ditempel** ke Release
+  itu (`softprops/action-gh-release`). Runner: Node 20, JDK 17 (temurin), Android SDK
+  36 (`platforms;android-36` + `build-tools;36.0.0`) → `npm ci` → `npm run build` →
+  `npx cap sync android` → `./gradlew assembleDebug`.
+- **Versioning otomatis dari tag** `vX.Y.Z`: `versionName = X.Y.Z`,
+  `versionCode = X*10000 + Y*100 + Z` (mis. `v1.3.0` → `10300`, selalu naik). Tag
+  non-semver → build gagal dengan pesan jelas. `android/app/build.gradle` kini baca
+  `-PappVersionCode/-PappVersionName` (fallback `1`/`"1.0"` untuk build lokal).
+- **Debug-signed** (pakai `android/debug.keystore` yang di-commit) → **nol secret**,
+  APK langsung bisa side-load & Google Sign-In tetap jalan (SHA-1 sudah terdaftar).
+  Env web opsional dari **repo Variables** `VITE_API_BASE_URL` & `VITE_GOOGLE_CLIENT_ID`
+  (kalau kosong, APK tetap ke-build; login/sync aktif setelah Variables diisi).
+
 ### Fixed — Tombol back hardware Android
 - Sebelumnya back hardware **menutup app** dari halaman mana pun (tak ada listener
   `backButton`). Kini `@capacitor/app` dipasang + handler di `useHardwareBack()`

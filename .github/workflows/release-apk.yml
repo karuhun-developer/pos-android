@@ -1,0 +1,82 @@
+name: Build APK on Release
+
+# Tiap Release di-publish di GitHub (tag vX.Y.Z) → build APK & tempel ke Release itu.
+# Versi app diturunkan otomatis dari tag: versionName = X.Y.Z, versionCode = X*10000 + Y*100 + Z.
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Derive version from tag
+        id: version
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          if [[ ! "$tag" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            echo "::error::Tag '$tag' bukan format 'vX.Y.Z' (semver). Bikin Release dengan tag mis. v1.3.0."
+            exit 1
+          fi
+          major="${BASH_REMATCH[1]}"
+          minor="${BASH_REMATCH[2]}"
+          patch="${BASH_REMATCH[3]}"
+          name="${major}.${minor}.${patch}"
+          code=$(( major * 10000 + minor * 100 + patch ))
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          echo "APK: pos-kacaw-$name.apk (versionCode=$code, versionName=$name)"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Setup JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android platform & build-tools
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web
+        env:
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+          VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
+        run: npm run build
+
+      - name: Capacitor sync
+        run: npx cap sync android
+
+      - name: Build APK (debug-signed)
+        working-directory: android
+        run: |
+          ./gradlew assembleDebug \
+            -PappVersionCode=${{ steps.version.outputs.code }} \
+            -PappVersionName=${{ steps.version.outputs.name }}
+
+      - name: Rename APK
+        run: |
+          mkdir -p dist
+          cp android/app/build/outputs/apk/debug/app-debug.apk \
+            "dist/pos-kacaw-${{ steps.version.outputs.name }}.apk"
+
+      - name: Attach APK to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/pos-kacaw-${{ steps.version.outputs.name }}.apk

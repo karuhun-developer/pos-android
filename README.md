@@ -55,6 +55,23 @@ Salin `.env.example` → `.env`:
 
 `.env` di-gitignore (berisi ID asli); hanya `.env.example` yang di-commit.
 
+## Rilis (CI)
+
+APK di-build **otomatis** oleh GitHub Actions (`.github/workflows/release-apk.yml`)
+tiap **Release** di-publish. Cara rilis:
+
+1. Buat **Release** baru di GitHub dengan tag **`vX.Y.Z`** (semver, mis. `v1.3.0`).
+2. Workflow jalan → build APK **debug-signed** → APK `pos-kacaw-X.Y.Z.apk`
+   **otomatis nempel** di halaman Release itu. Tinggal unduh & side-load.
+
+Versi app diturunkan dari tag: `versionName = X.Y.Z`,
+`versionCode = X*10000 + Y*100 + Z` (mis. `v1.3.0` → `10300`, selalu naik). Tag
+bukan `vX.Y.Z` → build sengaja gagal.
+
+Opsional, biar login Google & sync aktif di APK hasil CI, set **repo Variables**
+(Settings → Secrets and variables → Actions → Variables): `VITE_GOOGLE_CLIENT_ID`
+& `VITE_API_BASE_URL`. Kalau kosong, APK tetap ke-build (offline).
+
 ## Roadmap
 
 | Phase | Fitur | Status |
@@ -71,6 +88,7 @@ Salin `.env.example` → `.env`:
 | — | Export Excel `.xlsx` (Transaksi & Cashflow, filter tanggal) | ✅ |
 | — | Printer thermal — layer software ESC/POS (encoder + capability + setelan) | ✅ |
 | — | Printer thermal — transport native Bluetooth (SPP) & USB | ✅ |
+| — | CI: build APK otomatis saat Release + versioning dari tag | ✅ |
 
 ## Dokumentasi
 
