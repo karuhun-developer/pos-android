@@ -27,9 +27,10 @@ Tiap phase = satu rilis minor.
 - Mode **Kustom**: input **Dari/Sampai** jadi 2 kolom grid + tombol **Terapkan**
   full-width di bawah — sebelumnya tombol overflow saat sempit.
 
-### Removed — Banner "Sambungkan ke POS Pro (Segera)" di Home
-- Banner placeholder di header Home dihapus — fitur login online/sync sudah nyata
-  di halaman **Setelan** (kartu POS Pro), jadi label "Segera" tak lagi relevan.
+### Changed — Banner "Sambungkan ke POS Pro" di Home
+- Badge **"Segera"** dihapus dari banner — fitur login online/sync sudah nyata di
+  halaman **Setelan** (kartu POS Pro), jadi label "Segera" tak lagi relevan.
+  Banner tetap ada & tetap mengarah ke `/settings`.
 
 ### Added — CI: build APK otomatis saat Release + versioning dari tag
 - **Workflow `.github/workflows/release-apk.yml`** (trigger `release: published`):
