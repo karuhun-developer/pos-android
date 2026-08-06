@@ -30,7 +30,7 @@ Tiap phase = satu rilis minor.
 ### Added — CI: build APK otomatis saat Release + versioning dari tag
 - **Workflow `.github/workflows/release-apk.yml`** (trigger `release: published`):
   tiap bikin **Release** di GitHub → APK ke-build & **otomatis ditempel** ke Release
-  itu (`softprops/action-gh-release`). Runner: Node 20, JDK 17 (temurin), Android SDK
+  itu (`softprops/action-gh-release`). Runner: Node 22, JDK 17 (temurin), Android SDK
   36 (`platforms;android-36` + `build-tools;36.0.0`) → `npm ci` → `npm run build` →
   `npx cap sync android` → `./gradlew assembleDebug`.
 - **Versioning otomatis dari tag** `vX.Y.Z`: `versionName = X.Y.Z`,
