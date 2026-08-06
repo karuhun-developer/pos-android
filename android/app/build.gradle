@@ -3,14 +3,20 @@ apply plugin: 'com.android.application'
 android {
     namespace = "com.karuhundeveloper.poskacaw"
     compileSdk = rootProject.ext.compileSdkVersion
+
+    // Versi di-inject dari tag Release lewat CI (-PappVersionCode/-PappVersionName).
+    // Tanpa property (build lokal/Android Studio) fallback ke 1 / "1.0".
+    // Dihitung di variabel dulu supaya tak kena ambiguitas parser Groovy
+    // (`versionCode (...)` bakal dibaca sebagai pemanggilan method).
+    def appVersionCode = (project.findProperty('appVersionCode') ?: '1').toString().toInteger()
+    def appVersionName = (project.findProperty('appVersionName') ?: '1.0').toString()
+
     defaultConfig {
         applicationId "com.karuhundeveloper.poskacaw"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        // Versi di-inject dari tag Release lewat CI (-PappVersionCode/-PappVersionName).
-        // Tanpa property (build lokal/Android Studio) fallback ke 1 / "1.0".
-        versionCode (project.findProperty('appVersionCode') ?: '1').toString().toInteger()
-        versionName (project.findProperty('appVersionName') ?: '1.0').toString()
+        versionCode appVersionCode
+        versionName appVersionName
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
