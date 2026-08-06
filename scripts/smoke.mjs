@@ -25,11 +25,17 @@ try {
   await page.getByText('Menu Utama').waitFor({ timeout: 15000 })
   log('Boot OK — DB terinisialisasi, HomePage tampil')
 
-  // seed cashflow categories harus ada (migration v2)
+  // seed cashflow categories default harus ada (seedDefaultCashflowCategories)
   const cats = await q(
     "SELECT COUNT(*) as n FROM cashflow_categories WHERE deleted_at IS NULL",
   )
-  log('Seed cashflow_categories:', cats[0].n, '(harusnya 5)')
+  if (cats[0].n !== 9) throw new Error(`Seed cashflow_categories salah: ${cats[0].n} (harusnya 9)`)
+  const sysSales = await q(
+    "SELECT name FROM cashflow_categories WHERE is_system=1 AND type='income' AND deleted_at IS NULL",
+  )
+  if (sysSales[0]?.name !== 'Penjualan')
+    throw new Error(`Kategori sistem 'Penjualan' tak ada: ${JSON.stringify(sysSales)}`)
+  log('Seed cashflow_categories: 9 default ✔ (sistem Penjualan ada)')
 
   // 2) Ke Produk
   await page.getByRole('link', { name: /Produk/ }).first().click()
@@ -203,7 +209,7 @@ try {
   await page.getByRole('button', { name: /Belanja Stok/ }).click()
   await page.locator('input[inputmode="numeric"]').first().fill('5000')
   await page.getByRole('button', { name: /^Simpan$/ }).click()
-  await page.getByText('Saldo bulan ini').waitFor({ timeout: 8000 }) // balik ke ledger
+  await page.getByText(/Saldo ·/).waitFor({ timeout: 8000 }) // balik ke ledger (label DateRangeFilter)
   const man = await q(
     "SELECT direction,amount,source,session_id,category_id FROM cashflow_entries WHERE source='manual' ORDER BY occurred_at DESC LIMIT 1",
   )

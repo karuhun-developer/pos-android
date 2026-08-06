@@ -1,4 +1,5 @@
 import { getDb } from './sqlite'
+import { seedDefaultCashflowCategories } from './seedCashflow'
 
 /**
  * Tabel bisnis yang ikut sync (ter-scope per outlet di server). Diurut anak →
@@ -32,4 +33,7 @@ export async function resetLocalBusinessData(): Promise<void> {
     await tx.run('DELETE FROM outbox')
     await tx.run('DELETE FROM sync_state')
   })
+  // Isi ulang kategori cashflow default (incl. sistem 'Penjualan' yang dipakai
+  // checkout) — reset menghapusnya & migration tak akan re-seed.
+  await seedDefaultCashflowCategories(db)
 }

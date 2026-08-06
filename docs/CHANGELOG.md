@@ -5,6 +5,22 @@ Tiap phase = satu rilis minor.
 
 ## [Unreleased]
 
+### Fixed — Kategori cashflow default dijamin selalu ada
+- Sebelumnya default cuma di-seed **sekali** di migration v2 → setelah **pindah
+  outlet** (`resetLocalBusinessData` menghapus `cashflow_categories`, termasuk
+  sistem **'Penjualan'**) kategori hilang & tak terisi ulang; checkout lalu
+  mencatat pemasukan `category_id = null` ("Tanpa kategori").
+- **`src/db/seedCashflow.ts`** baru: `seedDefaultCashflowCategories(db)` —
+  **idempotent by name** (skip yang sudah ada), device-local (`dirty=1`, tanpa
+  outbox → tak di-push). Dipanggil **tiap boot** (`initDb` setelah migrasi) &
+  **setelah reset** (`resetLocalBusinessData`), jadi 'Penjualan' & kawan-kawan
+  selalu balik. Migration v2 kini memanggil fungsi yang sama (sumber tunggal).
+- **Logout tidak menghapus data lokal** (perilaku tetap) — cukup dijamin ada.
+- Set default diperluas jadi 9: income **Penjualan** (sistem), **Modal / Setoran**,
+  **Pendapatan Lain**; expense **Belanja Stok**, **Gaji Karyawan**, **Sewa Tempat**,
+  **Listrik & Air**, **Operasional**, **Lain-lain**. Install lama otomatis dapat
+  kategori baru saat boot (idempotent, tanpa migration tambahan).
+
 ### Added — Laporan/analitik (grafik ApexCharts)
 - **Menu "Laporan" baru** di Home → `/reports` (`src/pages/reports/ReportsPage.vue`
   + store read-only `src/stores/reports.ts`, terpisah agar tak mengganggu `range`

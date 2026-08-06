@@ -6,6 +6,7 @@ import {
 } from '@capacitor-community/sqlite'
 import type { Db, RunResult } from './types'
 import { runMigrations } from './migrations'
+import { seedDefaultCashflowCategories } from './seedCashflow'
 
 const DB_NAME = 'poskacaw'
 const DB_VERSION = 1
@@ -111,6 +112,9 @@ export async function initDb(): Promise<Db> {
 
     db = new SqliteDb(dbConn)
     await runMigrations(db)
+    // Jamin kategori cashflow default selalu ada (idempotent) — nutup kasus
+    // migration tak re-run setelah reset & set default yang diperluas.
+    await seedDefaultCashflowCategories(db)
 
     if (isWeb) {
       // persist schema awal ke IndexedDB

@@ -1,6 +1,6 @@
 import type { Db } from './types'
 import { nowMs } from '@/lib/datetime'
-import { uuid } from '@/lib/uuid'
+import { seedDefaultCashflowCategories } from './seedCashflow'
 
 interface Migration {
   version: number
@@ -151,23 +151,9 @@ const migrations: Migration[] = [
     version: 2,
     name: 'seed-defaults',
     up: async (db) => {
-      const t = nowMs()
-      // Kategori cashflow bawaan. 'Penjualan' = sistem (auto dari checkout, non-hapus).
-      const seedCats: Array<[string, 'income' | 'expense', number, number]> = [
-        ['Penjualan', 'income', 1, 0],
-        ['Modal / Setoran', 'income', 0, 1],
-        ['Belanja Stok', 'expense', 0, 2],
-        ['Gaji Karyawan', 'expense', 0, 3],
-        ['Operasional', 'expense', 0, 4],
-      ]
-      for (const [name, type, isSystem, order] of seedCats) {
-        await db.run(
-          `INSERT INTO cashflow_categories
-             (id, name, type, is_system, sort_order, created_at, updated_at, dirty, sync_version)
-           VALUES (?, ?, ?, ?, ?, ?, ?, 1, 0)`,
-          [uuid(), name, type, isSystem, order, t, t],
-        )
-      }
+      // Kategori cashflow bawaan (idempotent, sumber tunggal di seedCashflow.ts).
+      // Tetap dipanggil tiap boot & setelah reset — lihat initDb/resetLocalBusinessData.
+      await seedDefaultCashflowCategories(db)
     },
   },
   {
