@@ -91,6 +91,13 @@ const routes: RouteRecordRaw[] = [
     meta: { hideNav: true },
   },
 
+  // Laporan / analitik
+  {
+    path: '/reports',
+    name: 'reports',
+    component: () => import('@/pages/reports/ReportsPage.vue'),
+  },
+
   // Printer & setelan
   {
     path: '/printer',

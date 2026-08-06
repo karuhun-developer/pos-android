@@ -11,6 +11,7 @@ import {
   Store,
   CalendarClock,
   Cloud,
+  BarChart3,
 } from 'lucide-vue-next'
 import { storeToRefs } from 'pinia'
 import { useSettingsStore } from '@/stores/settings'
@@ -29,6 +30,7 @@ const menu = [
   { to: '/products', label: 'Produk', desc: 'Kelola barang', icon: Package, tint: 'bg-amber-500/10 text-amber-600' },
   { to: '/transactions', label: 'Transaksi', desc: 'Riwayat penjualan', icon: Receipt, tint: 'bg-violet-500/10 text-violet-600' },
   { to: '/cashflow', label: 'Cashflow', desc: 'Pemasukan & pengeluaran', icon: Wallet, tint: 'bg-emerald-500/10 text-emerald-600' },
+  { to: '/reports', label: 'Laporan', desc: 'Ringkasan & grafik', icon: BarChart3, tint: 'bg-indigo-500/10 text-indigo-600' },
   { to: '/cashier', label: 'Buka/Tutup Kasir', desc: 'Sesi kasir', icon: CalendarClock, tint: 'bg-sky-500/10 text-sky-600' },
   { to: '/printer', label: 'Printer', desc: 'Cetak struk', icon: Printer, tint: 'bg-rose-500/10 text-rose-600' },
   { to: '/settings', label: 'Akun & Setelan', desc: 'Login, PIN, toko', icon: UserCog, tint: 'bg-slate-500/10 text-slate-600' },

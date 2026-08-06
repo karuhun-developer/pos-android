@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button'
 const props = defineProps<{ modelValue: DateRange }>()
 const emit = defineEmits<{ 'update:modelValue': [value: DateRange] }>()
 
-const PRESETS: Exclude<RangePreset, 'custom'>[] = ['today', 'yesterday', 'week', 'month']
+const PRESETS: Exclude<RangePreset, 'custom'>[] = ['today', 'week', 'month']
 
 const showCustom = ref(props.modelValue.preset === 'custom')
 const fromDay = ref(dayKey(props.modelValue.from))
@@ -73,16 +73,18 @@ function applyCustom() {
       </button>
     </div>
 
-    <div v-if="showCustom" class="mt-2 flex items-end gap-2">
-      <div class="flex-1 space-y-1">
-        <label class="text-[11px] text-muted-foreground">Dari</label>
-        <Input v-model="fromDay" type="date" class="h-9" />
+    <div v-if="showCustom" class="mt-2 space-y-2">
+      <div class="grid grid-cols-2 gap-2">
+        <div class="space-y-1">
+          <label class="text-[11px] text-muted-foreground">Dari</label>
+          <Input v-model="fromDay" type="date" class="h-9 w-full" />
+        </div>
+        <div class="space-y-1">
+          <label class="text-[11px] text-muted-foreground">Sampai</label>
+          <Input v-model="toDay" type="date" class="h-9 w-full" />
+        </div>
       </div>
-      <div class="flex-1 space-y-1">
-        <label class="text-[11px] text-muted-foreground">Sampai</label>
-        <Input v-model="toDay" type="date" class="h-9" />
-      </div>
-      <Button size="sm" class="h-9" :disabled="!fromDay || !toDay" @click="applyCustom">
+      <Button size="sm" class="h-9 w-full" :disabled="!fromDay || !toDay" @click="applyCustom">
         Terapkan
       </Button>
     </div>
