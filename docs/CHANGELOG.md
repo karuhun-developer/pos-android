@@ -5,6 +5,18 @@ Tiap phase = satu rilis minor.
 
 ## [Unreleased]
 
+### Fixed — Tombol back hardware Android
+- Sebelumnya back hardware **menutup app** dari halaman mana pun (tak ada listener
+  `backButton`). Kini `@capacitor/app` dipasang + handler di `useHardwareBack()`
+  (`src/composables/`, dipakai di `App.vue`):
+  - **Home** → tekan back **2×** untuk keluar (hint "Tekan sekali lagi untuk keluar"
+    ~2 detik; back kedua <2s → `App.exitApp()`).
+  - **Halaman lain** → mundur sesuai riwayat (`router.back()`), fallback ke Home
+    bila riwayat kosong (`goBackOrHome`).
+  - **`/lock`** → back di-swallow (tetap terkunci).
+- Tombol back di `AppHeader` ikut pakai `goBackOrHome()` → aman saat riwayat kosong.
+- Listener hanya aktif di native (`Capacitor.isNativePlatform()`); web tak berubah.
+
 ### Added — Printer thermal: transport native Bluetooth & USB
 - **Plugin native `ThermalPrinter`** (`android/app/src/main/java/.../
   ThermalPrinterPlugin.java`, didaftarkan di `MainActivity.java`): `listBluetooth`,

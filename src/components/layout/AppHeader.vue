@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
 import { ChevronLeft } from 'lucide-vue-next'
+import { goBackOrHome } from '@/composables/useHardwareBack'
 
 defineProps<{
   title: string
@@ -18,7 +19,7 @@ const router = useRouter()
     <button
       v-if="back"
       class="-ml-1 flex size-9 items-center justify-center rounded-full text-foreground hover:bg-accent"
-      @click="router.back()"
+      @click="goBackOrHome(router)"
     >
       <ChevronLeft class="size-5" />
     </button>
