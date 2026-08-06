@@ -5,6 +5,28 @@ Tiap phase = satu rilis minor.
 
 ## [Unreleased]
 
+### Added — Laporan/analitik (grafik ApexCharts)
+- **Menu "Laporan" baru** di Home → `/reports` (`src/pages/reports/ReportsPage.vue`
+  + store read-only `src/stores/reports.ts`, terpisah agar tak mengganggu `range`
+  store sales/cashflow). Melengkapi item PRD "Laporan/analitik lanjutan — menyusul".
+- **KPI "Hari ini"** (selalu hari ini, independen filter): penjualan hari ini
+  (total + jumlah transaksi) dan pemasukan vs pengeluaran hari ini.
+- **Grafik tren ApexCharts** (`apexcharts` + `vue3-apexcharts`, di-import lokal di
+  page → masuk chunk lazy `/reports`, bundle utama tetap ramping): **toggle sumber
+  Transaksi/Cashflow** — sales = 1 seri bar total/hari, cashflow = 2 seri
+  (pemasukan debit vs pengeluaran credit)/hari. Sumbu-x dari daftar hari rentang
+  (termasuk hari kosong), ikut `DateRangeFilter` (default Minggu ini), tooltip &
+  label sumbu-Y pakai `formatRupiah`, tema grafik ikut dark/light.
+- **Export Excel** reuse `sales.buildExport`/`cashflow.buildExport` via
+  `ExportDialog` (prop `buildSheets` di-switch sesuai sumber aktif).
+
+### Changed — DateRangeFilter dirapikan (anti-overflow)
+- Preset **"Kemarin" dihapus** (`today/week/month` + Kustom) agar barisan pill tak
+  overflow/terpotong di layar sempit. Berdampak ke Transaksi, Cashflow, Laporan,
+  dan semua dialog Export yang berbagi komponen ini.
+- Mode **Kustom**: input **Dari/Sampai** jadi 2 kolom grid + tombol **Terapkan**
+  full-width di bawah — sebelumnya tombol overflow saat sempit.
+
 ### Added — CI: build APK otomatis saat Release + versioning dari tag
 - **Workflow `.github/workflows/release-apk.yml`** (trigger `release: published`):
   tiap bikin **Release** di GitHub → APK ke-build & **otomatis ditempel** ke Release

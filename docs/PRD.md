@@ -40,11 +40,11 @@ pengeluaran, tutup kasir harian — semuanya offline, data tidak hilang saat app
 | Akun & setelan | Toggle login (default OFF), PIN, profil toko, tema | 5 |
 | Sync POS Pro | Login online/Google + sync REST/JWT (interface siap) | 6 |
 | Plugin printer | Printer thermal via capability registry | 6/7 |
+| Laporan/analitik | KPI hari ini + grafik tren (ApexCharts) + export Excel | 7+ |
 
 ## 5. Non-Goals (v1)
 
 - Multi-user role & permission kompleks.
-- Laporan/analitik lanjutan (grafik, export Excel) — menyusul.
 - Pembayaran non-tunai terintegrasi (QRIS gateway) — menyusul.
 - Enkripsi DB at-rest (v1 `no-encryption`; keamanan = PIN app-level).
 

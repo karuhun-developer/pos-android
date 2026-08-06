@@ -88,6 +88,7 @@ Opsional, biar login Google & sync aktif di APK hasil CI, set **repo Variables**
 | — | Export Excel `.xlsx` (Transaksi & Cashflow, filter tanggal) | ✅ |
 | — | Printer thermal — layer software ESC/POS (encoder + capability + setelan) | ✅ |
 | — | Printer thermal — transport native Bluetooth (SPP) & USB | ✅ |
+| — | Laporan/analitik — KPI hari ini + grafik tren (ApexCharts) + export Excel | ✅ |
 | — | CI: build APK otomatis saat Release + versioning dari tag | ✅ |
 
 ## Dokumentasi
