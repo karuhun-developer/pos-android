@@ -10,7 +10,6 @@ import {
   UserCog,
   Store,
   CalendarClock,
-  Cloud,
   BarChart3,
 } from 'lucide-vue-next'
 import { storeToRefs } from 'pinia'
@@ -60,23 +59,6 @@ const menu = [
           </p>
         </div>
       </div>
-
-      <!-- Banner konek POS Pro (placeholder future) -->
-      <RouterLink
-        to="/settings"
-        class="mt-5 flex items-center gap-3 rounded-2xl bg-white/12 px-4 py-3 backdrop-blur transition hover:bg-white/20"
-      >
-        <Cloud class="size-5 shrink-0" />
-        <div class="min-w-0 flex-1">
-          <p class="text-sm font-semibold">Sambungkan ke POS Pro</p>
-          <p class="text-xs text-primary-foreground/75">
-            Login online & sinkronkan data ke cloud
-          </p>
-        </div>
-        <span class="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-semibold">
-          Segera
-        </span>
-      </RouterLink>
     </div>
 
     <!-- Grid menu -->
