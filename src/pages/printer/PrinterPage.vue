@@ -88,7 +88,7 @@ async function testPrint() {
 
 <template>
   <div>
-    <AppHeader title="Printer" />
+    <AppHeader title="Printer" back />
     <div class="space-y-4 p-4">
       <!-- Status -->
       <Card>

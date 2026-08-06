@@ -32,7 +32,7 @@ function setFilter(id: string | null) {
 
 <template>
   <div>
-    <AppHeader title="Produk" :subtitle="`${count} item`">
+    <AppHeader title="Produk" :subtitle="`${count} item`" back>
       <template #actions>
         <RouterLink to="/categories">
           <Button variant="outline" size="sm" class="gap-1.5" title="Kelola kategori">
