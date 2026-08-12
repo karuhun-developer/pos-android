@@ -132,6 +132,118 @@ try {
     throw new Error('Edit harga bikin media nambah — harusnya gak nyentuh gambar')
   log(`Edit harga: payload produk ${upd[0].len}B (ringan), media tetap 1 ✔`)
 
+  // 6c-ter) Barcode — migrasi v4, kolom barcode_type, dan yang paling penting:
+  //         nilainya BERTAHAN saat form edit dibuka ulang (regresi klasik:
+  //         kolom baru lupa dipetakan → diam-diam ke-reset).
+  const cols = await q('PRAGMA table_info(products)')
+  if (!cols.some((c) => c.name === 'barcode_type'))
+    throw new Error('Kolom products.barcode_type tidak ada — migrasi v4 gagal')
+  const mig = await q('SELECT MAX(version) AS v FROM schema_migrations')
+  if (mig[0].v < 4) throw new Error(`Migrasi belum sampai v4: ${mig[0].v}`)
+
+  const bcId = (
+    await q("SELECT id FROM products WHERE name='Bolu Coklat' AND deleted_at IS NULL LIMIT 1")
+  )[0].id
+  await page.goto(BASE + '/products/' + bcId + '/edit', { waitUntil: 'networkidle' })
+  await page.locator('#barcode').fill('8991002101234')
+  await page.locator('#barcode_type').selectOption('EAN13')
+  await page.getByText(/Barcode valid untuk EAN13/).waitFor({ timeout: 8000 })
+  await page.getByRole('button', { name: /Simpan Perubahan/ }).click()
+  await page.waitForTimeout(1200)
+
+  const withBc = await q(
+    "SELECT barcode, barcode_type FROM products WHERE name='Bolu Coklat'",
+  )
+  if (withBc[0]?.barcode !== '8991002101234' || withBc[0]?.barcode_type !== 'EAN13')
+    throw new Error(`Barcode tidak tersimpan: ${JSON.stringify(withBc[0])}`)
+
+  // Payload outbox harus bawa barcode_type — ini yang bikin kolomnya ikut sync.
+  const bcOb = await q(
+    "SELECT payload FROM outbox WHERE entity='products' AND op='update' ORDER BY created_at DESC LIMIT 1",
+  )
+  const bcPayload = JSON.parse(bcOb[0].payload)
+  if (bcPayload.barcode_type !== 'EAN13' || bcPayload.barcode !== '8991002101234')
+    throw new Error(`Outbox tak bawa barcode_type: ${bcOb[0].payload.slice(0, 200)}`)
+
+  // Buka ulang form → nilai lama harus balik utuh, bukan default.
+  await page.goto(BASE + '/products/' + bcId + '/edit', { waitUntil: 'networkidle' })
+  await page.locator('#barcode').waitFor({ timeout: 8000 })
+  if ((await page.locator('#barcode').inputValue()) !== '8991002101234')
+    throw new Error('Barcode hilang saat form edit dibuka ulang')
+  if ((await page.locator('#barcode_type').inputValue()) !== 'EAN13')
+    throw new Error('barcode_type ke-reset saat form edit dibuka ulang')
+  log('Barcode ✔ — kolom v4 ada, tersimpan, ikut outbox, bertahan di form edit')
+
+  // Tombol "lihat barcode" di list → SVG kerender (JsBarcode jalan).
+  await page.goto(BASE + '/products', { waitUntil: 'networkidle' })
+  await page.getByTitle('Lihat barcode').first().click()
+  await page.getByText('8991002101234 · EAN13').waitFor({ timeout: 8000 })
+  // JsBarcode di-lazy-import → bar-nya muncul beberapa saat setelah teksnya.
+  await page.locator('[role="dialog"] svg rect').first().waitFor({ timeout: 8000 })
+  const bars = await page.locator('[role="dialog"] svg rect').count()
+  if (bars < 10) throw new Error(`Barcode tidak dirender (rect: ${bars})`)
+  log(`Sheet barcode ✔ — JsBarcode render ${bars} bar`)
+  await page.goto(BASE + '/products', { waitUntil: 'networkidle' }) // tutup sheet
+
+  // 6c-quater) Impor CSV: barcode duplikat di-skip, tanpa barcode tetap masuk,
+  //            baris tanpa nama masuk daftar error.
+  const CSV = [
+    'nama,kategori,sku,barcode,tipe_barcode,harga_jual,harga_modal,lacak_stok,stok,aktif',
+    'Bolu Duplikat,Roti,,8991002101234,EAN13,30000,20000,tidak,0,ya', // barcode sudah ada → skip
+    'Susu Kotak,Minuman,SK-1,8991002109999,EAN13,7500,5000,ya,12,ya', // baru → masuk
+    'Gorengan,,,,,2000,1000,tidak,0,ya', // tanpa barcode → tetap masuk
+    ',,,8991002100000,,5000,,,,', // tanpa nama → error
+  ].join('\n')
+
+  await page.getByTitle('Impor / ekspor produk').click()
+  const [ioChooser] = await Promise.all([
+    page.waitForEvent('filechooser'),
+    page.getByRole('button', { name: /Pilih File/ }).click(),
+  ])
+  await ioChooser.setFiles({
+    name: 'produk.csv',
+    mimeType: 'text/csv',
+    buffer: Buffer.from(CSV, 'utf8'),
+  })
+  await page.getByText(/baris siap diimpor/).waitFor({ timeout: 8000 })
+  await page.getByText(/1 baris bermasalah/).waitFor({ timeout: 8000 })
+  await page.getByRole('button', { name: /Impor 3 Baris/ }).click()
+  await page.getByText(/produk diimpor/).waitFor({ timeout: 15000 })
+  await page.getByText(/1 dilewati \(barcode sudah ada\)/).waitFor({ timeout: 8000 })
+
+  const imported = await q(
+    "SELECT name, barcode, barcode_type, stock FROM products WHERE name IN ('Susu Kotak','Gorengan','Bolu Duplikat') AND deleted_at IS NULL ORDER BY name",
+  )
+  if (imported.length !== 2)
+    throw new Error(`Impor salah jumlah: ${JSON.stringify(imported)}`)
+  const susu = imported.find((r) => r.name === 'Susu Kotak')
+  if (susu?.barcode !== '8991002109999' || susu?.barcode_type !== 'EAN13' || susu?.stock !== 12)
+    throw new Error(`Baris impor salah: ${JSON.stringify(susu)}`)
+  const newCat = await q("SELECT name FROM categories WHERE name='Minuman' AND deleted_at IS NULL")
+  if (!newCat.length) throw new Error('Kategori baru dari impor tidak dibuat')
+  const impOb = await q(
+    "SELECT COUNT(*) AS n FROM outbox WHERE entity='products' AND op='insert'",
+  )
+  if (impOb[0].n < 3) throw new Error(`Produk impor tak masuk outbox: ${impOb[0].n}`)
+  await page.getByRole('button', { name: /^Selesai$/ }).click()
+  log('Impor CSV ✔ — 2 masuk, 1 dilewati (barcode sama), 1 error, kategori baru dibuat, outbox terisi')
+
+  // 6c-quinquies) Mode scan kasir — barcode dikenal masuk keranjang, yang asing
+  //               nawarin bikin produk. Kamera gak ada di headless, jadi
+  //               dipicu lewat hook dev `window.__scan`.
+  await page.goto(BASE + '/pos/scan', { waitUntil: 'networkidle' })
+  await page.getByText('Scan Barcode').first().waitFor({ timeout: 8000 })
+  await page.waitForFunction(() => typeof window.__scan === 'function', null, { timeout: 8000 })
+  await page.evaluate(() => window.__scan('8991002109999'))
+  await page.getByText('Susu Kotak').first().waitFor({ timeout: 8000 })
+  await page.evaluate(() => window.__scan('9999999999999'))
+  await page.getByText(/9999999999999 belum terdaftar/).waitFor({ timeout: 8000 })
+  await page.getByTitle('Lewati').click()
+  log('Mode scan ✔ — barcode dikenal masuk keranjang, barcode asing ditawarkan dibuat')
+
+  // Keranjang cuma di memori (Pinia, tanpa persist) → reload di langkah
+  // berikutnya otomatis mengosongkannya sebelum checkout.
+
   // 6c-bis) Buka kasir — modal awal 100000, sesi 'open' tersimpan.
   await page.goto(BASE + '/cashier', { waitUntil: 'networkidle' })
   await page.getByText('Buka Kasir').first().waitFor({ timeout: 8000 })
@@ -154,7 +266,8 @@ try {
   // Aktifkan lacak stok + stok 10 (in-memory). Navigasi ke POS lewat klik nav
   // (client-side, tanpa reload) supaya perubahan in-memory ini kepakai.
   await run("UPDATE products SET track_stock=1, stock=10 WHERE name='Bolu Coklat'")
-  await page.getByRole('link', { name: 'Kasir' }).click()
+  // exact: nav juga punya "Sesi Kasir" — tanpa ini match-nya ambigu.
+  await page.getByRole('link', { name: 'Kasir', exact: true }).click()
   await page.getByRole('button', { name: /Bolu Coklat/ }).click() // tambah ke cart
   await page.getByRole('button', { name: /Lihat Keranjang/ }).click()
   await page.getByRole('button', { name: 'Bayar' }).click()
