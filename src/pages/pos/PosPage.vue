@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { useRouter, RouterLink } from 'vue-router'
+import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
@@ -9,7 +9,7 @@ import PaymentDialog from '@/components/pos/PaymentDialog.vue'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import {
-  Package, Search, ShoppingCart, Check, Printer, PlusCircle, DoorOpen, DoorClosed,
+  Package, Search, ShoppingCart, Check, Printer, PlusCircle, DoorOpen, DoorClosed, ScanLine,
 } from 'lucide-vue-next'
 import { useProductsStore } from '@/stores/products'
 import { useCategoriesStore } from '@/stores/categories'
@@ -26,6 +26,7 @@ import { buildReceipt } from '@/lib/receipt'
 import { formatRupiah } from '@/lib/money'
 import { cn } from '@/lib/utils'
 
+const route = useRoute()
 const router = useRouter()
 const products = useProductsStore()
 const categories = useCategoriesStore()
@@ -40,11 +41,20 @@ const showCart = ref(false)
 const showPayment = ref(false)
 const paying = ref(false)
 const success = ref(false)
+const scannerReady = ref(false)
 const lastResult = ref<CheckoutResult | null>(null)
 
 onMounted(async () => {
+  scannerReady.value = await capabilities.has('scanner')
   await Promise.all([products.load(), categories.load(), cashier.load()])
   await media.ensure(products.items.map((p) => p.image_path))
+
+  // Balik dari mode scan lewat tombol Bayar (/pos?pay=1): langsung buka dialog
+  // pembayaran. Checkout tetap satu jalur di halaman ini — gak ada duplikasi.
+  if (route.query.pay === '1') {
+    void router.replace('/pos')
+    if (!cart.isEmpty) showPayment.value = true
+  }
 })
 
 function setFilter(id: string | null) {
@@ -113,9 +123,20 @@ function newTransaction() {
 
     <!-- Search + filter -->
     <div class="shrink-0 space-y-3 border-b border-border bg-background px-4 py-3">
-      <div class="relative">
-        <Search class="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input v-model="query" placeholder="Cari produk / SKU / barcode" class="pl-9" />
+      <div class="flex gap-2">
+        <div class="relative flex-1">
+          <Search class="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input v-model="query" placeholder="Cari produk / SKU / barcode" class="pl-9" />
+        </div>
+        <Button
+          v-if="scannerReady"
+          variant="outline"
+          size="icon"
+          title="Scan barcode"
+          @click="router.push('/pos/scan')"
+        >
+          <ScanLine class="size-5" />
+        </Button>
       </div>
       <div v-if="categories.items.length" class="no-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1">
         <button

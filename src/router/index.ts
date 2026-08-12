@@ -48,6 +48,14 @@ const routes: RouteRecordRaw[] = [
   // POS + transaksi (Phase 2)
   { path: '/pos', name: 'pos', component: () => import('@/pages/pos/PosPage.vue') },
   {
+    // Mode scan: kamera setengah layar + keranjang. hideNav supaya area
+    // kamera & keranjang gak berebut ruang dengan bottom nav.
+    path: '/pos/scan',
+    name: 'pos-scan',
+    component: () => import('@/pages/pos/ScanPage.vue'),
+    meta: { hideNav: true },
+  },
+  {
     path: '/transactions',
     name: 'transactions',
     component: () => import('@/pages/transactions/TransactionsPage.vue'),
