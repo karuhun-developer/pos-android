@@ -47,6 +47,7 @@ export interface Product extends SyncEntity {
   name: string
   sku: string | null
   barcode: string | null
+  barcode_type: string // simbologi JsBarcode: EAN13 | CODE128 | … (default EAN13)
   price: number // minor units
   cost: number
   track_stock: number // 0/1

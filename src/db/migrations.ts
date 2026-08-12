@@ -181,6 +181,20 @@ const migrations: Migration[] = [
       `)
     },
   },
+  {
+    version: 4,
+    name: 'product-barcode-type',
+    up: async (db) => {
+      // Simbologi barcode per produk — dipakai JsBarcode buat render & validasi.
+      // NOT NULL wajib punya DEFAULT di ALTER TABLE SQLite; 'EAN13' = standar
+      // barcode produk ritel, jadi default yang paling sering benar.
+      // Index barcode buat lookup mode scan kasir.
+      await db.execute(`
+        ALTER TABLE products ADD COLUMN barcode_type TEXT NOT NULL DEFAULT 'EAN13';
+        CREATE INDEX IF NOT EXISTS idx_products_barcode ON products(barcode);
+      `)
+    },
+  },
 ]
 
 /** Jalanin migrasi yang belum di-apply, berurutan, tiap satu dalam transaksi. */

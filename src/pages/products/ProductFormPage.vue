@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import { Button } from '@/components/ui/button'
@@ -7,11 +7,21 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import MoneyInput from '@/components/common/MoneyInput.vue'
-import { Trash2, ImagePlus, ImageIcon, Loader2 } from 'lucide-vue-next'
-import { useProductsStore, type ProductInput } from '@/stores/products'
+import ScannerSheet from '@/components/pos/ScannerSheet.vue'
+import { Trash2, ImagePlus, ImageIcon, Loader2, ScanLine } from 'lucide-vue-next'
+import { capabilities } from '@/services/capabilities/registry'
+import { useProductsStore, toProductInput, type ProductInput } from '@/stores/products'
 import { useCategoriesStore } from '@/stores/categories'
 import { useMediaStore } from '@/stores/media'
 import { pickImage, downscale, toDataUrl, type ProcessedImage } from '@/lib/image'
+import {
+  BARCODE_TYPES,
+  DEFAULT_BARCODE_TYPE,
+  barcodeTypeHint,
+  guessBarcodeType,
+  isValidBarcode,
+  normalizeBarcodeType,
+} from '@/lib/barcode'
 
 const route = useRoute()
 const router = useRouter()
@@ -35,6 +45,7 @@ const form = reactive<ProductInput>({
   name: '',
   sku: null,
   barcode: null,
+  barcode_type: DEFAULT_BARCODE_TYPE,
   price: 0,
   cost: 0,
   track_stock: 0,
@@ -52,33 +63,60 @@ const isActive = computed({
   set: (v: boolean) => (form.active = v ? 1 : 0),
 })
 
+// Tombol scan cuma muncul kalau device-nya memang bisa (browser tanpa kamera,
+// izin belum tentu ada — tapi minimal API-nya tersedia).
+const scannerReady = ref(false)
+const scanOpen = ref(false)
+
+async function onScanned(code: string) {
+  form.barcode = code
+  form.barcode_type = await guessBarcodeType(code)
+}
+
 onMounted(async () => {
+  scannerReady.value = await capabilities.has('scanner')
   await categories.load()
   if (id.value) {
     const p = await products.getById(id.value)
     if (p) {
-      Object.assign(form, {
-        category_id: p.category_id,
-        name: p.name,
-        sku: p.sku,
-        barcode: p.barcode,
-        price: p.price,
-        cost: p.cost,
-        track_stock: p.track_stock,
-        stock: p.stock,
-        image_path: p.image_path,
-        active: p.active,
-      })
+      // toProductInput() bikin pemetaan ini dicek compiler — kolom produk baru
+      // yang lupa dipetakan jadi error typecheck, bukan reset diam-diam.
+      Object.assign(form, toProductInput(p))
       if (p.image_path) {
         await media.ensure([p.image_path])
         preview.value = media.url(p.image_path)
       }
+    }
+  } else {
+    // Datang dari mode scan kasir: /products/new?barcode=8991…
+    const scanned = (route.query.barcode as string | undefined)?.trim()
+    if (scanned) {
+      form.barcode = scanned
+      form.barcode_type = await guessBarcodeType(scanned)
     }
   }
   loading.value = false
 })
 
 const canSave = computed(() => form.name.trim().length > 0)
+
+// ── Validasi barcode (peringatan, TIDAK memblokir simpan) ───────────────────
+// Barcode lama yang gak sesuai simbologi tetap harus bisa disimpan; user cuma
+// diberi tahu supaya sadar barcode-nya nanti gak bisa dirender/dicetak.
+const barcodeValid = ref<boolean | null>(null)
+
+watch(
+  [() => form.barcode, () => form.barcode_type],
+  async ([value, type]) => {
+    const v = (value ?? '').trim()
+    if (!v) {
+      barcodeValid.value = null
+      return
+    }
+    barcodeValid.value = await isValidBarcode(v, type)
+  },
+  { immediate: true },
+)
 
 async function choosePhoto() {
   const dataUrl = await pickImage()
@@ -112,6 +150,7 @@ async function save() {
     name: form.name.trim(),
     sku: form.sku?.trim() || null,
     barcode: form.barcode?.trim() || null,
+    barcode_type: normalizeBarcodeType(form.barcode_type),
     stock: form.track_stock ? form.stock : 0,
   }
   if (isEdit.value && id.value) {
@@ -198,15 +237,51 @@ async function remove() {
         </div>
       </div>
 
-      <div class="grid grid-cols-2 gap-3">
-        <div class="space-y-1.5">
-          <Label for="sku">SKU</Label>
-          <Input id="sku" v-model="form.sku as string" placeholder="opsional" />
+      <div class="space-y-1.5">
+        <Label for="sku">SKU</Label>
+        <Input id="sku" v-model="form.sku as string" placeholder="opsional" />
+      </div>
+
+      <div class="space-y-1.5">
+        <Label for="barcode">Barcode</Label>
+        <div class="flex gap-2">
+          <Input
+            id="barcode"
+            v-model="form.barcode as string"
+            class="flex-1"
+            inputmode="numeric"
+            placeholder="opsional"
+          />
+          <Button
+            v-if="scannerReady"
+            type="button"
+            variant="outline"
+            size="icon"
+            title="Scan barcode"
+            @click="scanOpen = true"
+          >
+            <ScanLine class="size-5" />
+          </Button>
         </div>
-        <div class="space-y-1.5">
-          <Label for="barcode">Barcode</Label>
-          <Input id="barcode" v-model="form.barcode as string" placeholder="opsional" />
-        </div>
+        <select
+          id="barcode_type"
+          v-model="form.barcode_type"
+          class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <option v-for="t in BARCODE_TYPES" :key="t.value" :value="t.value">
+            {{ t.label }}
+          </option>
+        </select>
+        <p v-if="barcodeValid === true" class="text-xs text-success">
+          ✓ Barcode valid untuk {{ form.barcode_type }}
+        </p>
+        <p v-else-if="barcodeValid === false" class="text-xs text-destructive">
+          Tidak sesuai {{ form.barcode_type }} — butuh {{ barcodeTypeHint(form.barcode_type) }}.
+          Tetap bisa disimpan, tapi barcode-nya gak bisa dicetak.
+        </p>
+        <p v-else class="text-xs text-muted-foreground">
+          Kosongkan kalau produk ini gak punya barcode.
+        </p>
       </div>
 
       <div class="space-y-3 rounded-xl border border-border p-4">
@@ -231,6 +306,8 @@ async function remove() {
         <Switch v-model="isActive" />
       </div>
     </div>
+
+    <ScannerSheet v-model:open="scanOpen" title="Scan Barcode Produk" @scan="onScanned" />
 
     <!-- Save bar -->
     <div class="fixed inset-x-0 bottom-0 z-30 mx-auto max-w-md border-t border-border bg-card p-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:left-64 md:right-0 md:mx-0 md:max-w-none">
