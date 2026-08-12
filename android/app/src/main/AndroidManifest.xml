@@ -47,4 +47,12 @@
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
 
     <uses-feature android:name="android.hardware.usb.host" android:required="false" />
+
+    <!-- Scan barcode: WebView Capacitor yang minta izin runtime-nya saat
+         getUserMedia dipanggil, tapi deklarasi ini tetap wajib ada.
+         required=false → app tetap bisa dipasang di perangkat tanpa kamera
+         (scan cuma satu fitur, bukan syarat pakai app). -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
 </manifest>
