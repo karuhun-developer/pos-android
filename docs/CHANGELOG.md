@@ -5,6 +5,45 @@ Tiap phase = satu rilis minor.
 
 ## [Unreleased]
 
+### Added — Barcode: tipe, render, scan kasir, impor/ekspor produk
+- **Kolom `products.barcode_type`** (migrasi client **v4**, default **`EAN13`**) +
+  index `idx_products_barcode`. Ikut sync **tanpa perubahan kode sync** — outbox
+  mengirim row penuh, server memfilter kolom lewat `Schema::getColumnListing()`.
+- **`src/lib/barcode.ts`** — satu-satunya modul yang tahu JsBarcode (lazy import):
+  daftar simbologi ritel (EAN13/CODE128/EAN8/UPC/CODE39/ITF14), validasi lewat
+  callback `valid` bawaan JsBarcode (termasuk check digit), tebak tipe dari nilai,
+  render ke SVG/PNG.
+- **Form produk**: pilihan tipe barcode, validasi live (peringatan, **tidak**
+  memblokir simpan), tombol **scan** untuk mengisi field dari kamera, dan prefill
+  dari `?barcode=…`.
+- **Sheet "lihat barcode"** di daftar produk — barcode dirender di kartu putih
+  (kontras, bukan warna tema) + **Bagikan / Simpan Gambar** (PNG).
+- **Mode scan kasir `/pos/scan`** — kamera **45dvh di atas (bukan fullscreen)**,
+  keranjang di bawah, total + Bayar di footer. Barcode dikenal → langsung masuk
+  keranjang (getar + beep + toast); produk nonaktif/habis → toast merah; barcode
+  asing → tawaran **Buat Produk Baru**. Anti-dobel 1500 ms/kode.
+  Bayar → `/pos?pay=1` supaya **checkout tetap satu jalur** di `PosPage`.
+- **`ScannerCapability`** di capability registry (pola sama dengan printer).
+  `WebScanner` (`getUserMedia` + `<video>` inline) dipakai di web **dan** Android;
+  decode `BarcodeDetector` bawaan platform → fallback `@zxing/browser`, ROI pita
+  tengah, ~10 fps. Manifest Android menambah izin `CAMERA` (+ fitur kamera/autofocus
+  `required=false`).
+- **Impor/ekspor produk CSV & XLSX** — header Bahasa Indonesia (+ alias EN),
+  kategori sebagai nama (dibuat otomatis saat impor), tombol unduh template.
+  **Baris yang barcode-nya sudah ada dilewati** (termasuk duplikat di dalam file);
+  baris tanpa barcode tetap diimpor. Penulisan per chunk 300 baris di atas handle
+  `tx`, `load()` sekali di akhir.
+- Baris keranjang di-extract jadi `components/pos/CartLines.vue` (dipakai
+  `CartSheet` + `ScanPage`), helper simpan/bagikan file jadi `src/lib/download.ts`
+  (dipakai xlsx, csv, dan PNG barcode).
+- Docs: **`docs/features/barcode-scan.md`** (baru) + pembaruan
+  `product-management.md`, `point-of-sale.md`, `architecture.md`,
+  `api/pos-pro-api-v1.md`.
+
+### Fixed
+- `scripts/smoke.mjs`: `getByRole('link', { name: 'Kasir' })` ambigu sejak sidebar
+  tablet menambah "Sesi Kasir" → dikunci dengan `exact: true`.
+
 ## [0.2.0] — 2026-08-06
 
 ### Changed — Redesign UI + dukungan tablet/iPad

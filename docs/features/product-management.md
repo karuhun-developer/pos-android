@@ -10,7 +10,17 @@ Kelola katalog produk & kategori sebagai dasar transaksi kasir.
 2. Lihat daftar produk (cari via nama/SKU/barcode, filter per kategori).
 3. **+ Tambah Produk** → isi form (termasuk **foto**) → Simpan.
 4. Tap produk → edit / hapus.
-5. Tombol **Kategori** di header → kelola **Kategori** (tambah/rename/hapus).
+5. Ikon **barcode** di kanan baris (kalau produknya punya barcode) → sheet
+   **Barcode**: barcode dirender + tombol bagikan/simpan PNG.
+6. Tombol **Kategori** di header → kelola **Kategori** (tambah/rename/hapus).
+7. Ikon **spreadsheet** di header → **Impor / Ekspor Produk** (CSV & XLSX).
+
+## Barcode
+Tiap produk punya `barcode` + `barcode_type` (simbologi JsBarcode, default
+**EAN13**). Form produk menyediakan pilihan tipe, validasi live (peringatan, tidak
+memblokir simpan) dan tombol **scan** untuk mengisi field dari kamera.
+Impor melewati baris yang barcode-nya sudah ada. Detail lengkap — termasuk mode
+scan kasir dan format file impor — ada di **`docs/features/barcode-scan.md`**.
 
 ## Foto produk (sync-ready)
 - Pilih foto: **Tambah Foto** → native pakai kamera/galeri (`@capacitor/camera`),
@@ -27,7 +37,8 @@ Kelola katalog produk & kategori sebagai dasar transaksi kasir.
 
 ## Data
 - Tabel `products`: `name`, `category_id`, `price`, `cost`, `sku`, `barcode`,
-  `track_stock`, `stock`, `active`, `image_path` (ref `media://<id>`) (+ kolom sync).
+  `barcode_type` (default `EAN13`), `track_stock`, `stock`, `active`,
+  `image_path` (ref `media://<id>`) (+ kolom sync).
 - Tabel `categories`: `name`, `sort_order`, `color` (+ kolom sync).
 - Tabel `media`: `mime`, `width`, `height`, `bytes`, `hash`, `data` (base64),
   `remote_url` (+ kolom sync).
@@ -42,8 +53,10 @@ Kelola katalog produk & kategori sebagai dasar transaksi kasir.
 ## Kode Terkait
 - `src/repositories/product.repo.ts`, `category.repo.ts`, `media.repo.ts`
 - `src/stores/products.ts`, `categories.ts`, `media.ts`
-- `src/lib/image.ts` (pick/downscale/hash)
+- `src/lib/image.ts` (pick/downscale/hash), `src/lib/barcode.ts` (JsBarcode),
+  `src/services/products/productIo.ts` (impor/ekspor)
 - `src/pages/products/ProductsPage.vue`, `ProductFormPage.vue`, `CategoriesPage.vue`
+- `src/components/products/BarcodeSheet.vue`, `ProductIoSheet.vue`
 - `src/components/common/MoneyInput.vue`
 
 ## Verifikasi

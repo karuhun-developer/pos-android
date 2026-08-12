@@ -1,6 +1,6 @@
 # Fitur: Point of Sale + Transaksi
 
-**Status:** ✅ Selesai (Phase 2) · **Route:** `/pos`, `/transactions`, `/transactions/:id`
+**Status:** ✅ Selesai (Phase 2) · **Route:** `/pos`, `/pos/scan`, `/transactions`, `/transactions/:id`
 
 ## Tujuan
 Layar jualan cepat: pilih produk → keranjang → bayar → struk, sekaligus otomatis
@@ -45,6 +45,14 @@ mencatat pemasukan ke cashflow.
 - `persist()` (= `saveToStore`) menutup transaksi SQLite aktif. `BaseRepository`
   men-guard `persist()` dengan `if (!this.db.inTransaction)`, dan checkout
   memanggil `persist()` **sekali** setelah commit terluar.
+
+## Mode scan (`/pos/scan`)
+Ikon **scan** di sebelah kolom pencarian membuka mode scan: kamera **45dvh di atas**
+(bukan fullscreen), keranjang di bawahnya, total + **Bayar** di footer. Produk yang
+ke-scan langsung masuk keranjang. Tombol Bayar mematikan kamera lalu kembali ke
+`/pos?pay=1` — dialog pembayaran langsung terbuka, jadi **checkout tetap satu jalur**
+di halaman ini. Baris keranjang dipakai bersama lewat `components/pos/CartLines.vue`
+(`CartSheet` + `ScanPage`). Detail: **`docs/features/barcode-scan.md`**.
 
 ## QRIS di checkout
 Bila metode = QRIS **dan** `settings.qris_payload` ada, PaymentDialog merender QR

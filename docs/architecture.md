@@ -63,6 +63,12 @@ POS Pro nanti menambah `JwtAuthProvider` + `HttpSyncAdapter` **tanpa mengubah re
 `WebPreviewPrinter`. Printer thermal = tambah `ThermalPrinter implements
 PrinterCapability` di `capabilities/bootstrap.ts`, tanpa menyentuh core.
 
+Kemampuan kedua: **`ScannerCapability`** (scan barcode). Implementasi terdaftar
+`WebScanner` (`getUserMedia` + `<video>` inline) dipakai di web **dan** Android —
+preview-nya elemen DOM biasa (`rendersBehindWebview = false`), jadi layout
+"kamera setengah layar" cukup flex biasa. Engine native (mis. ML Kit) tinggal
+didaftarkan sebagai implementasi lain. Detail: `docs/features/barcode-scan.md`.
+
 ## Struktur folder
 
 Lihat README / plan. Ringkas: `src/db` (sqlite, migrations, BaseRepository),

@@ -147,7 +147,7 @@ Idempoten: aman dikirim ulang (server upsert by id + LWW).
       "op": "insert",
       "payload": {
         "id": "prod-uuid", "category_id": null, "name": "Kopi Susu",
-        "sku": null, "barcode": null, "price": 18000, "cost": 9000,
+        "sku": null, "barcode": null, "barcode_type": "EAN13", "price": 18000, "cost": 9000,
         "track_stock": 0, "stock": 0, "image_path": "media://m-uuid",
         "active": 1, "created_at": 1722762000000, "updated_at": 1722762000000,
         "deleted_at": null, "dirty": 1, "sync_version": 0, "remote_id": null
@@ -261,6 +261,7 @@ bersifat lokal-FE; server menerimanya tapi mengabaikan untuk logika (kecuali ech
 | name | string | |
 | sku | string\|null | |
 | barcode | string\|null | |
+| barcode_type | string | simbologi JsBarcode (`EAN13`, `CODE128`, …). Default DB `EAN13` bila klien lama tak mengirimnya |
 | price | int | minor units |
 | cost | int | minor units |
 | track_stock | 0\|1 | |
