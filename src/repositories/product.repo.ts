@@ -25,6 +25,19 @@ export class ProductRepository extends BaseRepository<Product> {
     })
   }
 
+  /**
+   * Cari produk lewat barcode persis (mode scan kasir).
+   * Barcode gak dijamin unik di DB — kalau kebetulan dobel, yang aktif menang.
+   */
+  async findByBarcode(code: string): Promise<Product | null> {
+    const rows = await this.list({
+      where: 'barcode = ?',
+      params: [code],
+      orderBy: 'active DESC, name ASC',
+    })
+    return rows[0] ?? null
+  }
+
   /** Kurangi/tambah stok (dipakai checkout Phase 2). */
   async adjustStock(id: string, delta: number): Promise<void> {
     const p = await this.findById(id)

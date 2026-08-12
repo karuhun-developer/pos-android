@@ -5,10 +5,11 @@ import { storeToRefs } from 'pinia'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import BarcodeSheet from '@/components/products/BarcodeSheet.vue'
+import ProductIoSheet from '@/components/products/ProductIoSheet.vue'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Package, Plus, Search, Tag, Boxes, Barcode } from 'lucide-vue-next'
+import { Package, Plus, Search, Tag, Boxes, Barcode, FileSpreadsheet } from 'lucide-vue-next'
 import { useProductsStore } from '@/stores/products'
 import { useCategoriesStore } from '@/stores/categories'
 import { useMediaStore } from '@/stores/media'
@@ -22,6 +23,7 @@ const categories = useCategoriesStore()
 const media = useMediaStore()
 const { filtered, query, categoryFilter, count } = storeToRefs(products)
 
+const ioOpen = ref(false)
 const barcodeOpen = ref(false)
 const barcodeProduct = shallowRef<Product | null>(null)
 
@@ -44,6 +46,15 @@ function setFilter(id: string | null) {
   <div>
     <AppHeader title="Produk" :subtitle="`${count} item`" back>
       <template #actions>
+        <Button
+          variant="outline"
+          size="icon"
+          class="size-9"
+          title="Impor / ekspor produk"
+          @click="ioOpen = true"
+        >
+          <FileSpreadsheet class="size-4" />
+        </Button>
         <RouterLink to="/categories">
           <Button variant="outline" size="sm" class="gap-1.5" title="Kelola kategori">
             <Tag class="size-4" />
@@ -146,5 +157,6 @@ function setFilter(id: string | null) {
     </button>
 
     <BarcodeSheet v-model:open="barcodeOpen" :product="barcodeProduct" />
+    <ProductIoSheet v-model:open="ioOpen" />
   </div>
 </template>
