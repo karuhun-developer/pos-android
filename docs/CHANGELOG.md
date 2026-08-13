@@ -3,6 +3,22 @@
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/) & [SemVer](https://semver.org/).
 Tiap phase = satu rilis minor.
 
+## [0.3.2] — 2026-08-14
+
+### Changed — Identitas visual: ikon peluncur & splash sendiri
+- **Ikon bawaan Capacitor diganti lambang POS Kacaw**: struk dengan sobekan
+  bawah di atas kotak hitam-arang `#222933`. Satu sumber SVG menurunkan semua
+  ukuran, jadi tidak ada varian yang ketinggalan waktu warnanya berubah.
+- Lengkap untuk semua density: legacy 48–192, round, dan **foreground adaptif**
+  108–432 dengan lambang di 44% kanvas supaya tetap utuh dipotong mask bulat
+  maupun squircle. Splash mengikuti warna surface aplikasi.
+- Latar ikon adaptif pindah dari `#FFFFFF` ke warna merek, dan
+  `drawable/ic_launcher_background.xml` yang tidak dirujuk siapa pun dihapus —
+  dua sumber warna latar cuma menunggu untuk beda diam-diam.
+- `theme-color` di `index.html` ikut disamakan, dan lambang yang sama dipakai
+  favicon serta panel web POS Pro: satu produk kelihatan satu di HP maupun
+  browser.
+
 ## [0.3.1] — 2026-08-13
 
 ### Fixed — Gambar barcode tak ikut berubah setelah barcode produk diupdate
