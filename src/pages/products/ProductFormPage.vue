@@ -18,6 +18,8 @@ import {
   BARCODE_TYPES,
   DEFAULT_BARCODE_TYPE,
   barcodeTypeHint,
+  barcodeTypeLabel,
+  effectiveBarcodeValue,
   guessBarcodeType,
   isValidBarcode,
   normalizeBarcodeType,
@@ -104,18 +106,61 @@ const canSave = computed(() => form.name.trim().length > 0)
 // Barcode lama yang gak sesuai simbologi tetap harus bisa disimpan; user cuma
 // diberi tahu supaya sadar barcode-nya nanti gak bisa dirender/dicetak.
 const barcodeValid = ref<boolean | null>(null)
+/** Tipe lain yang cocok buat nilai yang sekarang — cuma SARAN, gak pernah
+ *  dipasang otomatis (lihat `useSuggestedType()`). */
+const suggestedType = ref<string | null>(null)
+
+// Watcher-nya async → ketikan cepat bisa balapan dan hasil lama menimpa yang
+// baru. Token ini bikin hasil usang langsung dibuang.
+let validateToken = 0
 
 watch(
   [() => form.barcode, () => form.barcode_type],
   async ([value, type]) => {
+    const token = ++validateToken
     const v = (value ?? '').trim()
+    suggestedType.value = null
     if (!v) {
       barcodeValid.value = null
       return
     }
-    barcodeValid.value = await isValidBarcode(v, type)
+    const ok = await isValidBarcode(v, type)
+    if (token !== validateToken) return
+    barcodeValid.value = ok
+    if (ok) return
+    const guess = await guessBarcodeType(v)
+    if (token !== validateToken) return
+    // guessBarcodeType() jatuh ke default kalau gak ada yang cocok — jangan
+    // nyaranin tipe yang sama-sama invalid.
+    if (guess !== type && (await isValidBarcode(v, guess))) {
+      if (token !== validateToken) return
+      suggestedType.value = guess
+    }
   },
   { immediate: true },
+)
+
+/**
+ * Pasang tipe yang disarankan — HARUS lewat tap user.
+ *
+ * Sengaja gak otomatis: menebak sendiri saat barcode diketik manual bakal
+ * (a) menimpa tipe yang user pilih sadar-sadar, dan (b) menyembunyikan typo —
+ * EAN-13 yang salah satu digitnya keliru masih lolos sebagai ITF-14, jadi
+ * peringatannya malah hilang. Nebak otomatis cuma buat hasil scan & deep link
+ * `?barcode=`, yang nilainya sudah pasti benar.
+ */
+function useSuggestedType() {
+  if (suggestedType.value) form.barcode_type = suggestedType.value
+}
+
+// Angka yang bakal tergambar. EAN/UPC/ITF nambah check digit sendiri, jadi bisa
+// beda dari yang diketik — ditampilkan supaya user gak kaget pas lihat sheet.
+const barcodeRendered = computed(() => {
+  const v = form.barcode?.trim() ?? ''
+  return v ? effectiveBarcodeValue(v, form.barcode_type) : ''
+})
+const barcodeAutoCheckDigit = computed(
+  () => barcodeValid.value === true && barcodeRendered.value !== (form.barcode ?? '').trim(),
 )
 
 async function choosePhoto() {
@@ -277,10 +322,25 @@ async function remove() {
         </p>
         <p v-else-if="barcodeValid === false" class="text-xs text-destructive">
           Tidak sesuai {{ form.barcode_type }} — butuh {{ barcodeTypeHint(form.barcode_type) }}.
-          Tetap bisa disimpan, tapi barcode-nya gak bisa dicetak.
+          Tetap bisa disimpan, tapi barcode-nya <strong>gak bisa digambar sama sekali</strong>:
+          sheet "Lihat barcode" bakal kosong dan tombol bagikan mati.
         </p>
+        <!-- Saran, bukan koreksi otomatis — lihat useSuggestedType(). -->
+        <button
+          v-if="suggestedType"
+          type="button"
+          class="text-xs font-medium text-info underline underline-offset-2"
+          @click="useSuggestedType"
+        >
+          Kode ini cocoknya {{ barcodeTypeLabel(suggestedType) }} — pakai itu?
+        </button>
         <p v-else class="text-xs text-muted-foreground">
           Kosongkan kalau produk ini gak punya barcode.
+        </p>
+        <!-- Check digit ditambah otomatis → angka di gambar beda dari yang diketik. -->
+        <p v-if="barcodeAutoCheckDigit" class="text-xs text-warning">
+          Tergambar sebagai <strong>{{ barcodeRendered }}</strong> — check digit ditambah
+          otomatis.
         </p>
       </div>
 

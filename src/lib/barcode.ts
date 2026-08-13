@@ -68,6 +68,70 @@ function newSvg(): SVGSVGElement {
   return document.createElementNS('http://www.w3.org/2000/svg', 'svg')
 }
 
+/** Atribut yang di-set `SVGRenderer.setSvgAttributes()`. Kalau gak ikut dibuang,
+ *  `<svg>` yang gagal render tetap punya ukuran & viewBox gambar sebelumnya. */
+const JSBARCODE_SVG_ATTRS = ['width', 'height', 'x', 'y', 'viewBox', 'xmlns', 'version']
+
+/**
+ * Kosongkan `<svg>` total — JANGAN pernah percaya JsBarcode buat ini.
+ *
+ * Untuk input tak sah, `ErrorHandler.handleCatch()` memanggil `valid(false)`
+ * lalu mengganti `api.render` jadi no-op. Akibatnya `SVGRenderer.prepareSVG()`
+ * — satu-satunya tempat yang menghapus anak `<svg>` — gak pernah jalan, dan
+ * gambar lama nyangkut alih-alih hilang.
+ */
+function clearSvg(el: SVGElement): void {
+  while (el.firstChild) el.removeChild(el.firstChild)
+  for (const a of JSBARCODE_SVG_ATTRS) el.removeAttribute(a)
+}
+
+/**
+ * Baca balik angka yang BENAR-BENAR digambar dari `<text>` hasil render.
+ *
+ * EAN-13 memecah teksnya jadi tiga `<text>` (digit pertama + 6 kiri + 6 kanan),
+ * dan teks guard bar diisi string kosong — jadi menggabung semuanya berurutan
+ * persis sama dengan yang kebaca mata.
+ */
+function readSvgText(el: SVGElement): string {
+  return Array.from(el.querySelectorAll('text'))
+    .map((t) => t.textContent ?? '')
+    .join('')
+}
+
+/** Rumus check digit EAN/UPC/ITF: bobot selang-seling, lalu `(10 - sum%10) % 10`.
+ *  Sengaja disalin dari encoder JsBarcode supaya form bisa kasih tahu user tanpa
+ *  harus narik chunk JsBarcode-nya duluan. */
+function checkDigit(digits: string, firstWeight: 1 | 3): string {
+  const sum = digits
+    .split('')
+    .reduce((s, d, i) => s + Number(d) * (i % 2 === 0 ? firstWeight : 4 - firstWeight), 0)
+  return String((10 - (sum % 10)) % 10)
+}
+
+/**
+ * Nilai yang bakal tergambar untuk `value`. EAN/UPC/ITF menambah check digit
+ * sendiri kalau input-nya kurang satu digit — jadi angka di bawah barcode BISA
+ * beda dari yang tersimpan, dan itu memang by design, bukan bug.
+ */
+export function effectiveBarcodeValue(value: string, type: string): string {
+  const v = value.trim()
+  switch (normalizeBarcodeType(type)) {
+    case 'EAN13':
+      return /^\d{12}$/.test(v) ? v + checkDigit(v, 1) : v
+    case 'EAN8':
+      return /^\d{7}$/.test(v) ? v + checkDigit(v, 3) : v
+    case 'UPC':
+      return /^\d{11}$/.test(v) ? v + checkDigit(v, 3) : v
+    // ITF14.js nulis rumusnya `Math.ceil(res/10)*10 - res` — beda cuma pas
+    // `res` kelipatan 10: dia balik 10 (jadi 15 digit → malah gak sah), kita
+    // balik 0. Gak jadi soal: hasilnya cuma dipakai kalau barcode-nya sah.
+    case 'ITF14':
+      return /^\d{13}$/.test(v) ? v + checkDigit(v, 3) : v
+    default:
+      return v
+  }
+}
+
 /**
  * Cek apakah `value` sah untuk simbologi `type`.
  *
@@ -125,13 +189,25 @@ const RENDER_DEFAULTS: RenderOptions = {
   lineColor: '#000000',
 }
 
-/** Render ke elemen `<svg>` yang sudah ada di DOM. `false` = barcode gak valid. */
+export interface RenderResult {
+  /** `false` = nilai gak sah untuk simbologinya. `<svg>` dijamin sudah kosong. */
+  ok: boolean
+  /** Angka yang benar-benar tergambar (check digit otomatis sudah termasuk).
+   *  String kosong kalau `ok === false`. */
+  rendered: string
+}
+
+/** Render ke elemen `<svg>` yang sudah ada di DOM. Elemennya SELALU dikosongkan
+ *  dulu — lihat `clearSvg()` soal kenapa ini gak boleh diserahkan ke JsBarcode. */
 export async function renderBarcodeSvg(
   el: SVGElement,
   value: string,
   type: string,
   opts: RenderOptions = {},
-): Promise<boolean> {
+): Promise<RenderResult> {
+  // Bersihkan SEBELUM await: begitu barcode berubah, gambar lama harus langsung
+  // hilang walau chunk JsBarcode-nya masih diunduh.
+  clearSvg(el)
   const JsBarcode = await loadJsBarcode()
   let ok = false
   try {
@@ -146,7 +222,11 @@ export async function renderBarcodeSvg(
   } catch {
     ok = false
   }
-  return ok
+  if (!ok) {
+    clearSvg(el) // jaga-jaga kalau render sempat nulis sebagian
+    return { ok: false, rendered: '' }
+  }
+  return { ok: true, rendered: readSvgText(el) }
 }
 
 /** Render ke canvas lepas → PNG data URL. Dipakai tombol bagikan/simpan gambar. */

@@ -25,7 +25,23 @@ digit EAN/UPC. Tanpa callback itu JsBarcode **melempar** untuk input tak sah.
 
 > **Validasi sifatnya peringatan, bukan blokir.** Barcode lama yang tak sesuai
 > simbologi tetap bisa disimpan; user cuma diberi tahu bahwa barcode-nya nanti
-> tak bisa dirender/dicetak.
+> **tak bisa digambar sama sekali** — sheet "Lihat barcode" kosong, tombol
+> bagikan mati.
+
+**Check digit ditambah otomatis.** EAN-13 (12 digit), EAN-8 (7), UPC-A (11), dan
+ITF-14 (13) melengkapi sendiri digit terakhirnya. Jadi **angka di gambar bisa
+beda dari string yang tersimpan** — ini by design, bukan bug, tapi dulu tak
+terlihat sama sekali dan bikin user mengira barcode-nya tak ter-update. Sekarang
+`effectiveBarcodeValue()` (`src/lib/barcode.ts`) menghitung nilai efektif itu,
+dan form produk + sheet barcode menampilkannya ("Tergambar sebagai …").
+
+**Tipe cuma disarankan, tak pernah diganti diam-diam.** Kalau nilai yang diketik
+tak sesuai tipe yang dipilih tapi sah untuk tipe lain, form menampilkan tombol
+saran ("Kode ini cocoknya … — pakai itu?"). Sengaja bukan koreksi otomatis:
+mengganti tipe sendiri akan menimpa pilihan sadar user **dan** menyembunyikan
+typo — EAN-13 yang satu digitnya keliru masih lolos sebagai ITF-14, jadi
+peringatannya malah hilang. Tebak otomatis (`guessBarcodeType()`) tetap dipakai
+untuk hasil scan & deep link `?barcode=`, yang nilainya sudah pasti benar.
 
 **Sync:** tanpa perubahan kode sync sama sekali. Outbox mengirim row penuh, dan
 server memfilter kolom lewat `Schema::getColumnListing()`. Catatan operasional:
@@ -48,6 +64,15 @@ Tombol cuma muncul kalau produknya punya barcode.
 putih** — scanner membaca kontras, bukan warna tema, jadi latar ini tetap putih
 walau app dalam dark mode. Tombol **Bagikan / Simpan Gambar** merender ulang ke
 `<canvas>` → PNG → `saveOrShare()` (native: share sheet, web: unduh).
+
+> **`renderBarcodeSvg()` selalu mengosongkan `<svg>`-nya sendiri — jangan pernah
+> serahkan itu ke JsBarcode.** Untuk input tak sah,
+> `ErrorHandler.handleCatch()` memanggil `valid(false)` lalu **mengganti
+> `api.render` jadi no-op**. Padahal satu-satunya yang menghapus anak `<svg>`
+> adalah `SVGRenderer.prepareSVG()` yang ada *di dalam* `render()` — jadi
+> elemennya tak tersentuh sama sekali dan gambar lama nyangkut. Sheet-nya juga
+> memberi `:key` pada `<svg>` (nilai + tipe) plus token urutan buat membuang
+> hasil render yang keburu usang. Regresinya dijaga `scripts/smoke.mjs`.
 
 > Cetak barcode ke printer thermal **di luar scope**: `ThermalPrinter` jalur ESC/POS
 > teks; cetak raster butuh command image terpisah.

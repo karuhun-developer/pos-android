@@ -174,16 +174,96 @@ try {
     throw new Error('barcode_type ke-reset saat form edit dibuka ulang')
   log('Barcode ✔ — kolom v4 ada, tersimpan, ikut outbox, bertahan di form edit')
 
+  // Sheet di-teleport ke <body>; saat ditutup, transisi leave 0.28s bikin dialog
+  // LAMA masih nempel di DOM. `.last()` = dialog yang baru saja dibuka.
+  const sheet = () => page.locator('[role="dialog"]').last()
+  // Nilai yang BENAR-BENAR tergambar = gabungan semua <text> di dalam <svg>
+  // (EAN-13 memecahnya jadi 3 potong: digit pertama + 6 kiri + 6 kanan).
+  const drawn = async () => (await sheet().locator('svg text').allTextContents()).join('')
+  async function closeSheet() {
+    // Klik backdrop, bukan page.goto — biar transisi leave-nya benar-benar
+    // selesai dan assert berikutnya gak kena sisa dialog lama. Posisinya
+    // dipojok kiri atas: tengah backdrop ketutup panel sheet-nya.
+    await sheet()
+      .locator('div[class*="bg-black/40"]')
+      .click({ position: { x: 10, y: 10 } })
+    await page.locator('[role="dialog"]').waitFor({ state: 'detached', timeout: 5000 })
+  }
+  async function openBarcodeSheet() {
+    await page.goto(BASE + '/products', { waitUntil: 'networkidle' })
+    await page.getByTitle('Lihat barcode').first().click()
+  }
+  /** Simpan barcode baru lewat form edit produk `bcId`. */
+  async function saveBarcode(value, expect) {
+    await page.goto(BASE + '/products/' + bcId + '/edit', { waitUntil: 'networkidle' })
+    await page.locator('#barcode').waitFor({ timeout: 8000 })
+    await page.locator('#barcode').fill(value)
+    await page.getByText(expect).waitFor({ timeout: 8000 })
+    await page.getByRole('button', { name: /Simpan Perubahan/ }).click()
+    await page.waitForTimeout(1200)
+  }
+
   // Tombol "lihat barcode" di list → SVG kerender (JsBarcode jalan).
-  await page.goto(BASE + '/products', { waitUntil: 'networkidle' })
-  await page.getByTitle('Lihat barcode').first().click()
+  await openBarcodeSheet()
   await page.getByText('8991002101234 · EAN13').waitFor({ timeout: 8000 })
   // JsBarcode di-lazy-import → bar-nya muncul beberapa saat setelah teksnya.
-  await page.locator('[role="dialog"] svg rect').first().waitFor({ timeout: 8000 })
-  const bars = await page.locator('[role="dialog"] svg rect').count()
+  await sheet().locator('svg rect').first().waitFor({ timeout: 8000 })
+  const bars = await sheet().locator('svg rect').count()
   if (bars < 10) throw new Error(`Barcode tidak dirender (rect: ${bars})`)
-  log(`Sheet barcode ✔ — JsBarcode render ${bars} bar`)
-  await page.goto(BASE + '/products', { waitUntil: 'networkidle' }) // tutup sheet
+  const drawn0 = await drawn()
+  if (drawn0 !== '8991002101234')
+    throw new Error(`Angka di gambar barcode salah: "${drawn0}"`)
+  log(`Sheet barcode ✔ — ${bars} bar, angka tergambar ${drawn0}`)
+  await closeSheet()
+
+  // ── Regresi: barcode diedit → GAMBAR-nya harus ikut berubah ────────────────
+  // Bug lama: untuk input tak sah JsBarcode menjadikan render() no-op
+  // (ErrorHandler.handleCatch), jadi <svg> gak pernah dikosongkan dan gambar
+  // lama nyangkut padahal caption-nya sudah nilai baru.
+  await saveBarcode('8991002102347', /Barcode valid untuk EAN13/)
+  await openBarcodeSheet()
+  await page.getByText('8991002102347 · EAN13').waitFor({ timeout: 8000 })
+  await sheet().locator('svg rect').first().waitFor({ timeout: 8000 })
+  const drawn1 = await drawn()
+  if (drawn1 !== '8991002102347')
+    throw new Error(`Gambar barcode masih nilai lama: "${drawn1}"`)
+  log('Sheet barcode ✔ — gambar ikut berubah setelah barcode diedit')
+  await closeSheet()
+
+  // ── Regresi: barcode tak sah → <svg> HARUS kosong, bukan sisa gambar lama ──
+  // 8991002102340 = check digit salah buat EAN13, tapi sah sebagai ITF-14 →
+  // tipenya cuma DISARANKAN, gak boleh dipasang diam-diam (itu nutupin typo).
+  await page.goto(BASE + '/products/' + bcId + '/edit', { waitUntil: 'networkidle' })
+  await page.locator('#barcode').waitFor({ timeout: 8000 })
+  await page.locator('#barcode').fill('8991002102340')
+  await page.getByText(/Tidak sesuai EAN13/).waitFor({ timeout: 8000 })
+  await page.getByRole('button', { name: /cocoknya ITF-14/ }).waitFor({ timeout: 8000 })
+  if ((await page.locator('#barcode_type').inputValue()) !== 'EAN13')
+    throw new Error('barcode_type ke-ganti otomatis — harusnya cuma disaranin')
+  await page.getByRole('button', { name: /Simpan Perubahan/ }).click()
+  await page.waitForTimeout(1200)
+
+  await openBarcodeSheet()
+  await page.getByText(/tidak sesuai EAN13/).waitFor({ timeout: 8000 })
+  const leftover = await sheet().locator('svg rect').count()
+  if (leftover !== 0) throw new Error(`Sisa gambar barcode lama: ${leftover} rect`)
+  if (await sheet().getByRole('button', { name: /Bagikan/ }).isEnabled())
+    throw new Error('Tombol bagikan aktif padahal barcode tak sah')
+  log('Sheet barcode ✔ — barcode tak sah gak nyisain gambar lama')
+  await closeSheet()
+
+  // ── Check digit otomatis: 12 digit → JsBarcode nambah digit ke-13 sendiri,
+  //    jadi angka di gambar beda dari yang disimpan. Harus diberitahukan. ─────
+  await page.goto(BASE + '/products/' + bcId + '/edit', { waitUntil: 'networkidle' })
+  await page.locator('#barcode').waitFor({ timeout: 8000 })
+  await page.locator('#barcode').fill('899100210234')
+  await page.getByText(/Tergambar sebagai 8991002102347/).waitFor({ timeout: 8000 })
+  log('Form barcode ✔ — check digit otomatis diberitahukan ke user')
+
+  // Balikin ke nilai semula — langkah impor CSV di bawah mengandalkan barcode
+  // ini buat nguji "duplikat di-skip".
+  await saveBarcode('8991002101234', /Barcode valid untuk EAN13/)
+  await page.goto(BASE + '/products', { waitUntil: 'networkidle' })
 
   // 6c-quater) Impor CSV: barcode duplikat di-skip, tanpa barcode tetap masuk,
   //            baris tanpa nama masuk daftar error.
