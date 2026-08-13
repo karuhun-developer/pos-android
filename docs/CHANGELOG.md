@@ -3,7 +3,7 @@
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/) & [SemVer](https://semver.org/).
 Tiap phase = satu rilis minor.
 
-## [Unreleased]
+## [0.3.0] — 2026-08-13
 
 ### Added — Barcode: tipe, render, scan kasir, impor/ekspor produk
 - **Kolom `products.barcode_type`** (migrasi client **v4**, default **`EAN13`**) +
@@ -41,6 +41,12 @@ Tiap phase = satu rilis minor.
   `api/pos-pro-api-v1.md`.
 
 ### Fixed
+- **Overlay "Transaksi Berhasil" & splash screen kepotong kiri-kanan di layar lebar.**
+  Dua-duanya masih membawa `mx-auto max-w-md` **di elemen `fixed inset-0` yang
+  sekaligus jadi latar** — sisa era frame app di-cap `max-w-md` global (dihapus di
+  0.2.0). Akibatnya latarnya cuma 448px di tengah dan halaman di belakangnya nongol
+  di sisi kiri-kanan. Sekarang ikut pola `BottomSheet`: latar full-bleed, isinya yang
+  dibatasi `max-w-md`. Smoke test menjaga lebar overlay sukses = lebar viewport.
 - `scripts/smoke.mjs`: `getByRole('link', { name: 'Kasir' })` ambigu sejak sidebar
   tablet menambah "Sesi Kasir" → dikunci dengan `exact: true`.
 
