@@ -3,6 +3,27 @@
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/) & [SemVer](https://semver.org/).
 Tiap phase = satu rilis minor.
 
+## [0.3.1] — 2026-08-13
+
+### Fixed — Gambar barcode tak ikut berubah setelah barcode produk diupdate
+- **`renderBarcodeSvg()` sekarang selalu mengosongkan `<svg>`-nya sendiri.** Untuk
+  input tak sah, `ErrorHandler.handleCatch()` JsBarcode mengganti `api.render`
+  jadi **no-op**, sedangkan satu-satunya yang menghapus anak `<svg>` ada *di
+  dalam* `render()` — jadi gambar lama nyangkut alih-alih hilang.
+- **Selisih check digit otomatis kini ditampilkan.** EAN-13/EAN-8/UPC/ITF-14
+  melengkapi digit terakhirnya sendiri, jadi angka di gambar bisa beda dari yang
+  tersimpan. `effectiveBarcodeValue()` baru; form produk & sheet barcode
+  menampilkan "Tergambar sebagai …". Ini penyebab utama laporan "gambar tidak
+  ter-update" padahal caption-nya berubah.
+- **`BarcodeSheet`**: status render eksplisit (`idle`/`rendering`/`ok`/`invalid`/
+  `empty`) menggantikan `valid` yang tak pernah di-reset, token urutan untuk
+  membuang hasil render usang, dan `:key` pada `<svg>` (nilai + tipe).
+- **Form produk**: pesan barcode tak sah dipertegas (gak bisa digambar sama
+  sekali), plus **tombol saran tipe** — disarankan, tak pernah diganti otomatis,
+  supaya typo tak tertutupi simbologi yang lebih permisif.
+- Smoke test: edit barcode → gambar ikut berubah; barcode tak sah → tak ada sisa
+  `<rect>` & tombol bagikan mati; check digit otomatis diberitahukan.
+
 ## [0.3.0] — 2026-08-13
 
 ### Added — Barcode: tipe, render, scan kasir, impor/ekspor produk
