@@ -23,7 +23,7 @@ onMounted(() => {
 
 <template>
   <div
-    class="fixed inset-0 z-50 mx-auto flex max-w-md flex-col items-center justify-center gap-5"
+    class="fixed inset-0 z-50 flex flex-col items-center justify-center gap-5"
     :class="BG[splashBg] || BG.brand"
   >
     <div

@@ -277,6 +277,14 @@ try {
   await page.getByText('Transaksi Berhasil').waitFor({ timeout: 8000 })
   log('Checkout OK — layar sukses tampil')
 
+  // Latar overlay sukses harus selebar layar. Pernah cuma 448px (max-w-md nempel
+  // di elemen fixed-nya) → di layar lebar sisi kiri-kanan bocor ke halaman POS.
+  const overlayBox = await page.getByTestId('success-overlay').boundingBox()
+  const vw = page.viewportSize().width
+  if (!overlayBox || Math.abs(overlayBox.width - vw) > 1)
+    throw new Error(`Overlay sukses tidak full-bleed: ${overlayBox?.width} vs viewport ${vw}`)
+  log(`Overlay sukses full-bleed ✔ (${Math.round(overlayBox.width)}px = lebar viewport)`)
+
   const sale = await q(
     "SELECT number,total,paid,change_due,payment_method,status,session_id FROM sales WHERE deleted_at IS NULL ORDER BY sold_at DESC LIMIT 1",
   )

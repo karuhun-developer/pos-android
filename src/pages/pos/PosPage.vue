@@ -256,39 +256,48 @@ function newTransaction() {
     <!-- Sukses -->
     <Teleport to="body">
       <Transition name="fade">
-        <div v-if="success && lastResult" class="fixed inset-0 z-[60] mx-auto flex max-w-md flex-col items-center justify-center gap-1 bg-background p-6">
-          <div class="flex size-20 items-center justify-center rounded-full bg-success/15 text-success">
-            <Check class="size-10" />
-          </div>
-          <p class="mt-4 text-lg font-bold">Transaksi Berhasil</p>
-          <p class="text-sm text-muted-foreground">No. {{ lastResult.sale.number }}</p>
+        <!-- Latar full-bleed, isinya yang di-cap max-w-md (pola BottomSheet).
+             Kalau max-w-md dipasang di elemen fixed-nya sendiri, latarnya cuma
+             selebar 448px dan layar di belakangnya nongol di kiri-kanan. -->
+        <div
+          v-if="success && lastResult"
+          data-testid="success-overlay"
+          class="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-background p-6"
+        >
+          <div class="flex w-full max-w-md flex-col items-center gap-1">
+            <div class="flex size-20 items-center justify-center rounded-full bg-success/15 text-success">
+              <Check class="size-10" />
+            </div>
+            <p class="mt-4 text-lg font-bold">Transaksi Berhasil</p>
+            <p class="text-sm text-muted-foreground">No. {{ lastResult.sale.number }}</p>
 
-          <div class="mt-6 w-full space-y-2 rounded-2xl bg-muted/50 p-4">
-            <div class="flex justify-between text-sm">
-              <span class="text-muted-foreground">Total</span>
-              <span class="font-semibold">{{ formatRupiah(lastResult.sale.total) }}</span>
+            <div class="mt-6 w-full space-y-2 rounded-2xl bg-muted/50 p-4">
+              <div class="flex justify-between text-sm">
+                <span class="text-muted-foreground">Total</span>
+                <span class="font-semibold">{{ formatRupiah(lastResult.sale.total) }}</span>
+              </div>
+              <div class="flex justify-between text-sm">
+                <span class="text-muted-foreground">Bayar</span>
+                <span>{{ formatRupiah(lastResult.sale.paid) }}</span>
+              </div>
+              <div v-if="lastResult.sale.change_due > 0" class="flex justify-between text-sm">
+                <span class="text-muted-foreground">Kembalian</span>
+                <span class="font-semibold text-success">{{ formatRupiah(lastResult.sale.change_due) }}</span>
+              </div>
             </div>
-            <div class="flex justify-between text-sm">
-              <span class="text-muted-foreground">Bayar</span>
-              <span>{{ formatRupiah(lastResult.sale.paid) }}</span>
-            </div>
-            <div v-if="lastResult.sale.change_due > 0" class="flex justify-between text-sm">
-              <span class="text-muted-foreground">Kembalian</span>
-              <span class="font-semibold text-success">{{ formatRupiah(lastResult.sale.change_due) }}</span>
-            </div>
-          </div>
 
-          <div class="mt-6 grid w-full grid-cols-2 gap-3">
-            <Button variant="outline" class="gap-2" @click="printReceipt">
-              <Printer class="size-4" /> Cetak Struk
-            </Button>
-            <Button class="gap-2" @click="newTransaction">
-              <PlusCircle class="size-4" /> Transaksi Baru
-            </Button>
+            <div class="mt-6 grid w-full grid-cols-2 gap-3">
+              <Button variant="outline" class="gap-2" @click="printReceipt">
+                <Printer class="size-4" /> Cetak Struk
+              </Button>
+              <Button class="gap-2" @click="newTransaction">
+                <PlusCircle class="size-4" /> Transaksi Baru
+              </Button>
+            </div>
+            <button class="mt-3 text-xs text-muted-foreground underline" @click="router.push('/transactions')">
+              Lihat semua transaksi
+            </button>
           </div>
-          <button class="mt-3 text-xs text-muted-foreground underline" @click="router.push('/transactions')">
-            Lihat semua transaksi
-          </button>
         </div>
       </Transition>
     </Teleport>
