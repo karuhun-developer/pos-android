@@ -1,9 +1,13 @@
-# POS Kacaw
+# POS Kacaw — aplikasi kasir Android offline (POS gratis & open source)
 
-Aplikasi **Point of Sale offline-first** untuk warung/UMKM. Kasir jalan **100%
-tanpa internet** (kelola produk, transaksi, buka/tutup kasir, cashflow), dan
-arsitekturnya sudah disiapkan untuk **sinkronisasi ke cloud "POS Pro"** (login
-online/Google, sync dua arah, plugin tambahan) tanpa mengubah core.
+Aplikasi **kasir / Point of Sale offline-first** untuk warung & UMKM. Kasir
+jalan **100% tanpa internet** — kelola produk, transaksi, barcode, buka/tutup
+kasir, cashflow, cetak struk thermal — lalu **sinkron sendiri ke cloud
+"POS Pro"** begitu ada sinyal (login online/Google, sync dua arah). Gratis,
+tanpa langganan.
+
+**[⬇ Unduh APK terbaru](https://github.com/karuhun-developer/pos-android/releases/latest)**
+· [Panel web POS Pro](https://github.com/karuhun-developer/pos-web)
 
 - **App id:** `com.karuhundeveloper.poskacaw`
 - **Backend (opsional):** [POS Pro](https://github.com/karuhun-developer/pos-web) — Laravel + Sanctum
