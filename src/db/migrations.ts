@@ -73,7 +73,10 @@ const migrations: Migration[] = [
           change_due INTEGER NOT NULL DEFAULT 0,
           payment_method TEXT NOT NULL DEFAULT 'cash',
           status TEXT NOT NULL DEFAULT 'completed',
-          sold_at INTEGER NOT NULL,
+          open_bill_label TEXT,
+          opened_at INTEGER,
+          origin_device_id TEXT,
+          sold_at INTEGER,
           ${SYNC_COLS}
         );
 
@@ -141,6 +144,8 @@ const migrations: Migration[] = [
         CREATE INDEX IF NOT EXISTS idx_products_dirty ON products(dirty);
         CREATE INDEX IF NOT EXISTS idx_sale_items_sale ON sale_items(sale_id);
         CREATE INDEX IF NOT EXISTS idx_sales_session ON sales(session_id, sold_at);
+        CREATE INDEX IF NOT EXISTS idx_sales_open ON sales(status, opened_at);
+        CREATE INDEX IF NOT EXISTS idx_sales_origin_device ON sales(origin_device_id);
         CREATE INDEX IF NOT EXISTS idx_cashflow_cat ON cashflow_entries(category_id, occurred_at);
         CREATE INDEX IF NOT EXISTS idx_cashflow_session ON cashflow_entries(session_id);
         CREATE INDEX IF NOT EXISTS idx_outbox_status ON outbox(status, created_at);
@@ -192,6 +197,54 @@ const migrations: Migration[] = [
       await db.execute(`
         ALTER TABLE products ADD COLUMN barcode_type TEXT NOT NULL DEFAULT 'EAN13';
         CREATE INDEX IF NOT EXISTS idx_products_barcode ON products(barcode);
+      `)
+    },
+  },
+  {
+    version: 5,
+    name: 'sales-open-bills',
+    up: async (db) => {
+      // SQLite tidak bisa menghapus NOT NULL dari sold_at secara langsung.
+      // Rebuild menjaga data dan tombstone lama sambil menambah lifecycle Open Bill.
+      await db.execute(`
+        ALTER TABLE sales RENAME TO sales_legacy;
+        DROP INDEX IF EXISTS idx_sales_session;
+
+        CREATE TABLE sales (
+          id TEXT PRIMARY KEY NOT NULL,
+          session_id TEXT,
+          number TEXT NOT NULL,
+          subtotal INTEGER NOT NULL DEFAULT 0,
+          discount INTEGER NOT NULL DEFAULT 0,
+          tax INTEGER NOT NULL DEFAULT 0,
+          total INTEGER NOT NULL DEFAULT 0,
+          paid INTEGER NOT NULL DEFAULT 0,
+          change_due INTEGER NOT NULL DEFAULT 0,
+          payment_method TEXT NOT NULL DEFAULT 'cash',
+          status TEXT NOT NULL DEFAULT 'completed',
+          open_bill_label TEXT,
+          opened_at INTEGER,
+          origin_device_id TEXT,
+          sold_at INTEGER,
+          ${SYNC_COLS}
+        );
+
+        INSERT INTO sales (
+          id, session_id, number, subtotal, discount, tax, total, paid,
+          change_due, payment_method, status, open_bill_label, opened_at,
+          origin_device_id, sold_at, created_at, updated_at, deleted_at,
+          dirty, sync_version, remote_id
+        )
+        SELECT
+          id, session_id, number, subtotal, discount, tax, total, paid,
+          change_due, payment_method, status, NULL, NULL, NULL, sold_at,
+          created_at, updated_at, deleted_at, dirty, sync_version, remote_id
+        FROM sales_legacy;
+
+        DROP TABLE sales_legacy;
+        CREATE INDEX IF NOT EXISTS idx_sales_session ON sales(session_id, sold_at);
+        CREATE INDEX IF NOT EXISTS idx_sales_open ON sales(status, opened_at);
+        CREATE INDEX IF NOT EXISTS idx_sales_origin_device ON sales(origin_device_id);
       `)
     },
   },

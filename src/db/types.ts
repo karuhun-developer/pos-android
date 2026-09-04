@@ -88,8 +88,11 @@ export interface Sale extends SyncEntity {
   paid: number
   change_due: number
   payment_method: string
-  status: 'completed' | 'void'
-  sold_at: number
+  status: 'open' | 'completed' | 'void'
+  open_bill_label: string | null
+  opened_at: number | null
+  origin_device_id: string | null
+  sold_at: number | null
 }
 
 export interface SaleItem extends SyncEntity {

@@ -1,9 +1,9 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { getDb } from '@/db/sqlite'
-import { SaleRepository } from '@/repositories/sale.repo'
+import { SaleRepository, type DatedSale } from '@/repositories/sale.repo'
 import { CashflowEntryRepository } from '@/repositories/cashflowEntry.repo'
-import type { Sale, CashflowEntry } from '@/db/types'
+import type { CashflowEntry } from '@/db/types'
 import { presetRange, type DateRange } from '@/lib/dateRange'
 import { dayKey, startOfDay } from '@/lib/datetime'
 
@@ -23,10 +23,10 @@ export const useReportsStore = defineStore('reports', () => {
   const loading = ref(false)
 
   // Data "hari ini" untuk kartu KPI — independen dari `range`.
-  const todaySales = ref<Sale[]>([])
+  const todaySales = ref<DatedSale[]>([])
   const todayCash = ref<CashflowEntry[]>([])
   // Data rentang aktif untuk grafik tren.
-  const rangeSales = ref<Sale[]>([])
+  const rangeSales = ref<DatedSale[]>([])
   const rangeCash = ref<CashflowEntry[]>([])
 
   function saleRepo() {

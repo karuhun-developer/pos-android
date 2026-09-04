@@ -3,6 +3,19 @@
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/) & [SemVer](https://semver.org/).
 Tiap phase = satu rilis minor.
 
+## [Unreleased]
+
+### Added — Open Bill: tahan transaksi tanpa efek finansial
+- Lifecycle Open Bill terdokumentasi: **open → completed**, **open → tombstoned**
+  untuk discard, dan **completed → void**. Hold sudah memiliki nomor sale dan
+  snapshot item immutable, tetapi **sold_at** masih **null** dan belum mengubah
+  stok, sesi kasir, akuntansi, laporan, atau cashflow.
+- Kontrak sync API v1 diperluas secara additive untuk **sales.open_bill_label**,
+  **opened_at**, **origin_device_id**, dan **sold_at** nullable. Open Bill tetap
+  memakai push/pull entity biasa, source device menjadi satu-satunya perangkat
+  yang dapat melanjutkan/re-hold/discard/bayar, dan tampilan POS Pro bersifat
+  read-only. Lihat **docs/features/open-bill.md**.
+
 ## [0.3.2] — 2026-08-14
 
 ### Changed — Identitas visual: ikon peluncur & splash sendiri

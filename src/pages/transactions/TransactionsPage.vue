@@ -15,7 +15,7 @@ import { rangeLabel } from '@/lib/dateRange'
 import type { Sale } from '@/db/types'
 
 const sales = useSalesStore()
-const { recent, summary, range } = storeToRefs(sales)
+const { recent, openBills, summary, range } = storeToRefs(sales)
 
 const label = computed(() => rangeLabel(range.value))
 
@@ -23,19 +23,31 @@ const exportOpen = ref(false)
 
 const PAY_LABEL: Record<string, string> = { cash: 'Tunai', qris: 'QRIS', transfer: 'Transfer' }
 
+function activityTime(sale: Sale): number {
+  if (sale.status === 'open') return sale.opened_at ?? sale.created_at
+  return sale.sold_at ?? sale.created_at
+}
+
+const visibleSales = computed<Sale[]>(() =>
+  [...openBills.value, ...recent.value].sort((left, right) => activityTime(right) - activityTime(left)),
+)
+
 // Kelompokkan per hari buat header tanggal.
 const groups = computed(() => {
-  const map = new Map<string, Sale[]>()
-  for (const s of recent.value) {
-    const k = dayKey(s.sold_at)
-    if (!map.has(k)) map.set(k, [])
-    map.get(k)!.push(s)
+  const map = new Map<string, { key: string; label: string; rows: Sale[] }>()
+  for (const sale of visibleSales.value) {
+    const time = activityTime(sale)
+    const key = dayKey(time)
+    const group = map.get(key)
+    if (group) {
+      group.rows.push(sale)
+      continue
+    }
+    map.set(key, { key, label: formatDate(time), rows: [sale] })
   }
-  return Array.from(map.entries()).map(([key, rows]) => ({
-    key,
-    label: formatDate(rows[0].sold_at),
-    rows,
-    total: rows.reduce((sum, r) => sum + (r.status === 'completed' ? r.total : 0), 0),
+  return Array.from(map.values()).map((group) => ({
+    ...group,
+    total: group.rows.reduce((sum, sale) => sum + (sale.status === 'completed' ? sale.total : 0), 0),
   }))
 })
 
@@ -69,7 +81,7 @@ onMounted(() => sales.load())
       <p class="mt-0.5 text-xs opacity-80">{{ summary.count }} transaksi</p>
     </div>
 
-    <template v-if="recent.length">
+    <template v-if="visibleSales.length">
       <section v-for="g in groups" :key="g.key">
         <div class="flex items-center justify-between bg-muted/40 px-4 py-1.5 text-xs font-medium text-muted-foreground">
           <span>{{ g.label }}</span>
@@ -86,15 +98,19 @@ onMounted(() => sales.load())
               <Receipt class="size-5" />
             </div>
             <div class="min-w-0 flex-1">
-              <p class="truncate text-sm font-medium">{{ s.number }}</p>
+              <p class="truncate text-sm font-medium">
+                {{ s.status === 'open' ? s.open_bill_label ?? 'Tanpa label' : s.number }}
+              </p>
               <div class="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
-                <span>{{ formatTime(s.sold_at) }}</span>
+                <span>{{ formatTime(activityTime(s)) }}</span>
                 <span>·</span>
-                <span>{{ PAY_LABEL[s.payment_method] ?? s.payment_method }}</span>
+                <span v-if="s.status === 'open'">Ditahan · {{ s.number }}</span>
+                <span v-else>{{ PAY_LABEL[s.payment_method] ?? s.payment_method }}</span>
               </div>
             </div>
             <div class="text-right">
               <p class="text-sm font-semibold">{{ formatRupiah(s.total) }}</p>
+              <Badge v-if="s.status === 'open'" variant="warning" class="mt-0.5">Open Bill</Badge>
               <Badge v-if="s.status === 'void'" variant="secondary" class="mt-0.5">Batal</Badge>
             </div>
             <ChevronRight class="size-4 text-muted-foreground" />

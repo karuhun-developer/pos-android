@@ -1,15 +1,19 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import AppHeader from '@/components/layout/AppHeader.vue'
+import BottomSheet from '@/components/common/BottomSheet.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import CartSheet from '@/components/pos/CartSheet.vue'
+import OpenBillsSheet from '@/components/pos/OpenBillsSheet.vue'
 import PaymentDialog from '@/components/pos/PaymentDialog.vue'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
 import {
   Package, Search, ShoppingCart, Check, Printer, PlusCircle, DoorOpen, DoorClosed, ScanLine,
+  ReceiptText, Trash2, X,
 } from 'lucide-vue-next'
 import { useProductsStore } from '@/stores/products'
 import { useCategoriesStore } from '@/stores/categories'
@@ -21,7 +25,9 @@ import { useCashierStore } from '@/stores/cashier'
 import { usePrinterStore } from '@/stores/printer'
 import { capabilities } from '@/services/capabilities/registry'
 import type { PrinterCapability } from '@/services/capabilities/registry'
-import type { CheckoutResult } from '@/services/checkout.service'
+import { CheckoutError, type CheckoutResult } from '@/services/checkout.service'
+import type { CartLine } from '@/stores/cart'
+import type { Sale } from '@/db/types'
 import { buildReceipt } from '@/lib/receipt'
 import { formatRupiah } from '@/lib/money'
 import { cn } from '@/lib/utils'
@@ -36,13 +42,29 @@ const sales = useSalesStore()
 const settings = useSettingsStore()
 const cashier = useCashierStore()
 const { filtered, query, categoryFilter } = storeToRefs(products)
+const { openBills } = storeToRefs(sales)
 
 const showCart = ref(false)
 const showPayment = ref(false)
+const showOpenBills = ref(false)
+const showHoldForm = ref(false)
+const showDiscardConfirm = ref(false)
 const paying = ref(false)
+const holding = ref(false)
 const success = ref(false)
 const scannerReady = ref(false)
 const lastResult = ref<CheckoutResult | null>(null)
+const holdLabel = ref('')
+const selectedDiscardBill = ref<Sale | null>(null)
+const openBillBusyId = ref<string | null>(null)
+const operationError = ref<string | null>(null)
+
+const headerSubtitle = computed(() => {
+  if (cart.activeOpenBillId) {
+    return `Open Bill: ${cart.activeOpenBillLabel ?? cart.activeOpenBillId}`
+  }
+  return cart.count ? `${cart.count} item di keranjang` : 'Ketuk produk untuk menambah'
+})
 
 onMounted(async () => {
   scannerReady.value = await capabilities.has('scanner')
@@ -65,31 +87,192 @@ function soldOut(stock: number, track: number) {
   return !!track && stock <= 0
 }
 
+function checkoutLines() {
+  return cart.lines.map((line) => ({
+    productId: line.productId,
+    name: line.name,
+    price: line.price,
+    qty: line.qty,
+  }))
+}
+
+async function refreshPosState() {
+  await products.load()
+  await media.ensure(products.items.map((product) => product.image_path))
+  await cashier.refreshSummary()
+}
+
+function openHoldForm() {
+  operationError.value = null
+  holdLabel.value = cart.activeOpenBillLabel ?? ''
+  showHoldForm.value = true
+}
+
+async function submitHold() {
+  if (cart.isEmpty || holding.value) return
+
+  holding.value = true
+  operationError.value = null
+  try {
+    const label = holdLabel.value.trim() || null
+    if (cart.activeOpenBillId) {
+      await sales.rehold({
+        saleId: cart.activeOpenBillId,
+        deviceId: settings.deviceId,
+        lines: checkoutLines(),
+        discount: cart.discount,
+        label,
+      })
+    } else {
+      await sales.hold({
+        lines: checkoutLines(),
+        discount: cart.discount,
+        devicePrefix: settings.devicePrefix || 'POS',
+        deviceId: settings.deviceId,
+        label,
+      })
+    }
+    cart.clear()
+    showHoldForm.value = false
+    showCart.value = false
+    await refreshPosState()
+  } catch (error) {
+    if (error instanceof CheckoutError) {
+      operationError.value = error.message
+      return
+    }
+    throw error
+  } finally {
+    holding.value = false
+  }
+}
+
+async function openOpenBills() {
+  operationError.value = null
+  showCart.value = false
+  showOpenBills.value = true
+  await sales.load()
+}
+
+function restoreOpenBill(result: CheckoutResult): boolean {
+  const lines: CartLine[] = []
+  for (const item of result.items) {
+    if (item.product_id === null) return false
+    const product = products.items.find((entry) => entry.id === item.product_id)
+    lines.push({
+      productId: item.product_id,
+      name: item.name_snapshot,
+      price: item.price_snapshot,
+      qty: item.qty,
+      image_path: product?.image_path ?? null,
+      track_stock: product?.track_stock ?? 0,
+      stock: product?.stock ?? 0,
+    })
+  }
+
+  cart.loadOpenBill({
+    bill: {
+      id: result.sale.id,
+      label: result.sale.open_bill_label ?? result.sale.number,
+    },
+    snapshot: { lines, discount: result.sale.discount },
+  })
+  return true
+}
+
+async function resumeOpenBill(bill: Sale) {
+  if (!cart.isEmpty) {
+    operationError.value = 'Kosongkan atau tahan keranjang aktif sebelum melanjutkan Open Bill lain.'
+    return
+  }
+
+  openBillBusyId.value = bill.id
+  operationError.value = null
+  try {
+    const result = await sales.resume({ saleId: bill.id, deviceId: settings.deviceId })
+    if (!restoreOpenBill(result)) {
+      operationError.value = 'Open Bill tidak dapat dilanjutkan karena ada item tanpa produk.'
+      return
+    }
+    showOpenBills.value = false
+    showCart.value = true
+  } catch (error) {
+    if (error instanceof CheckoutError) {
+      operationError.value = error.message
+      return
+    }
+    throw error
+  } finally {
+    openBillBusyId.value = null
+  }
+}
+
+function requestDiscardOpenBill(bill: Sale) {
+  if (settings.deviceId === '' || bill.origin_device_id !== settings.deviceId) {
+    operationError.value = 'Open Bill dari perangkat lain hanya dapat dilihat.'
+    return
+  }
+  operationError.value = null
+  selectedDiscardBill.value = bill
+  showDiscardConfirm.value = true
+}
+
+async function discardOpenBill() {
+  const bill = selectedDiscardBill.value
+  if (bill === null || openBillBusyId.value !== null) return
+
+  openBillBusyId.value = bill.id
+  operationError.value = null
+  try {
+    await sales.discard({ saleId: bill.id, deviceId: settings.deviceId })
+    if (cart.activeOpenBillId === bill.id) cart.clear()
+    selectedDiscardBill.value = null
+    showDiscardConfirm.value = false
+  } catch (error) {
+    if (error instanceof CheckoutError) {
+      operationError.value = error.message
+      return
+    }
+    throw error
+  } finally {
+    openBillBusyId.value = null
+  }
+}
+
 async function pay({ paid, paymentMethod }: { paid: number; paymentMethod: string }) {
   paying.value = true
+  operationError.value = null
   try {
-    const res = await sales.checkout({
-      lines: cart.lines.map((l) => ({
-        productId: l.productId,
-        name: l.name,
-        price: l.price,
-        qty: l.qty,
-      })),
+    const activeOpenBillId = cart.activeOpenBillId
+    const payment = {
+      lines: checkoutLines(),
       paid,
       paymentMethod,
       discount: cart.discount,
-      sessionId: cashier.current?.id ?? null, // link ke sesi kasir aktif (bila ada)
-      devicePrefix: settings.devicePrefix || 'POS',
-    })
+      sessionId: cashier.current?.id ?? null,
+    }
+    const res = activeOpenBillId
+      ? await sales.completeOpenBill({
+          ...payment,
+          saleId: activeOpenBillId,
+          deviceId: settings.deviceId,
+        })
+      : await sales.checkout({
+          ...payment,
+          devicePrefix: settings.devicePrefix || 'POS',
+        })
     lastResult.value = res
     showPayment.value = false
     showCart.value = false
     cart.clear()
-    // Refresh stok yang berkurang di grid + ringkasan laci sesi kasir.
-    await products.load()
-    await media.ensure(products.items.map((p) => p.image_path))
-    await cashier.refreshSummary()
+    await refreshPosState()
     success.value = true
+  } catch (error) {
+    if (error instanceof CheckoutError) {
+      operationError.value = error.message
+      return
+    }
+    throw error
   } finally {
     paying.value = false
   }
@@ -116,10 +299,13 @@ function newTransaction() {
 
 <template>
   <div class="flex h-full flex-col">
-    <AppHeader
-      title="Point of Sale"
-      :subtitle="cart.count ? `${cart.count} item di keranjang` : 'Ketuk produk untuk menambah'"
-    />
+    <AppHeader title="Point of Sale" :subtitle="headerSubtitle">
+      <template #actions>
+        <Button variant="outline" size="sm" class="gap-1.5" @click="openOpenBills">
+          <ReceiptText class="size-4" /> Open Bills
+        </Button>
+      </template>
+    </AppHeader>
 
     <!-- Search + filter -->
     <div class="shrink-0 space-y-3 border-b border-border bg-background px-4 py-3">
@@ -244,14 +430,92 @@ function newTransaction() {
               {{ cart.count }}
             </span>
           </div>
-          <span class="flex-1 text-left text-sm font-semibold">Lihat Keranjang</span>
+          <span class="flex-1 truncate text-left text-sm font-semibold">
+            {{ cart.activeOpenBillId ? `Open Bill: ${cart.activeOpenBillLabel ?? cart.activeOpenBillId}` : 'Lihat Keranjang' }}
+          </span>
           <span class="text-base font-bold">{{ formatRupiah(cart.total) }}</span>
         </button>
       </div>
     </Transition>
 
-    <CartSheet v-model:open="showCart" @pay="showCart = false; showPayment = true" />
+    <CartSheet
+      v-model:open="showCart"
+      @hold="openHoldForm"
+      @open-bills="openOpenBills"
+      @pay="showCart = false; showPayment = true"
+    />
     <PaymentDialog v-model:open="showPayment" :total="cart.total" :busy="paying" @confirm="pay" />
+    <OpenBillsSheet
+      v-model:open="showOpenBills"
+      :bills="openBills"
+      :device-id="settings.deviceId"
+      :cart-has-lines="!cart.isEmpty"
+      :busy-bill-id="openBillBusyId"
+      @resume="resumeOpenBill"
+      @discard="requestDiscardOpenBill"
+    />
+
+    <BottomSheet v-model:open="showHoldForm" :title="cart.activeOpenBillId ? 'Simpan Perubahan Open Bill' : 'Tahan Pesanan'">
+      <form class="space-y-5 p-5" @submit.prevent="submitHold">
+        <div class="space-y-2">
+          <Label for="open-bill-label">Label pesanan</Label>
+          <Input
+            id="open-bill-label"
+            v-model="holdLabel"
+            autocomplete="off"
+            placeholder="Contoh: Meja 4 / Nama pelanggan"
+          />
+          <p class="text-xs leading-relaxed text-muted-foreground">
+            Gunakan label agar pesanan mudah ditemukan saat dilanjutkan.
+          </p>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <Button type="button" variant="outline" :disabled="holding" @click="showHoldForm = false">
+            Batal
+          </Button>
+          <Button type="submit" :disabled="holding || cart.isEmpty">
+            {{ holding ? 'Menyimpan…' : cart.activeOpenBillId ? 'Simpan Perubahan' : 'Tahan Pesanan' }}
+          </Button>
+        </div>
+      </form>
+    </BottomSheet>
+
+    <BottomSheet v-model:open="showDiscardConfirm" title="Buang Open Bill?">
+      <div class="space-y-5 p-5">
+        <div class="flex gap-3">
+          <div class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-destructive/10 text-destructive">
+            <Trash2 class="size-5" />
+          </div>
+          <p class="text-sm leading-relaxed text-muted-foreground">
+            Open Bill <span class="font-semibold text-foreground">{{ selectedDiscardBill?.open_bill_label ?? selectedDiscardBill?.number }}</span>
+            beserta itemnya akan dibuang dan tidak dapat dilanjutkan lagi.
+          </p>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <Button type="button" variant="outline" :disabled="openBillBusyId !== null" @click="showDiscardConfirm = false">
+            Batal
+          </Button>
+          <Button type="button" variant="destructive" :disabled="openBillBusyId !== null" @click="discardOpenBill">
+            {{ openBillBusyId ? 'Membuang…' : 'Buang Open Bill' }}
+          </Button>
+        </div>
+      </div>
+    </BottomSheet>
+
+    <Teleport to="body">
+      <Transition name="fade">
+        <div
+          v-if="operationError"
+          class="fixed inset-x-4 top-4 z-[70] mx-auto flex max-w-md items-start gap-3 rounded-2xl border border-destructive/30 bg-card p-3 shadow-lg"
+          role="alert"
+        >
+          <p class="min-w-0 flex-1 text-sm leading-relaxed text-destructive">{{ operationError }}</p>
+          <Button size="icon" variant="ghost" class="size-8 shrink-0" aria-label="Tutup pesan" @click="operationError = null">
+            <X class="size-4" />
+          </Button>
+        </div>
+      </Transition>
+    </Teleport>
 
     <!-- Sukses -->
     <Teleport to="body">

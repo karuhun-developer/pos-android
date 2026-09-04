@@ -2,23 +2,34 @@ import { BaseRepository } from '@/db/BaseRepository'
 import type { Sale } from '@/db/types'
 import { dayKey } from '@/lib/datetime'
 
+export type DatedSale = Sale & { readonly sold_at: number }
+
 export class SaleRepository extends BaseRepository<Sale> {
   protected readonly table = 'sales'
 
-  /** Transaksi terbaru (default 50), termasuk void — buat riwayat. */
   listRecent(limit = 50): Promise<Sale[]> {
     return this.db.query<Sale>(
-      `SELECT * FROM sales WHERE deleted_at IS NULL ORDER BY sold_at DESC LIMIT ?`,
+      `SELECT * FROM sales WHERE deleted_at IS NULL
+       ORDER BY COALESCE(sold_at, opened_at, created_at) DESC LIMIT ?`,
       [limit],
     )
   }
 
-  /** Transaksi dalam rentang `sold_at` (inklusif), termasuk void — buat filter tanggal. */
-  listBetween(from: number, to: number, limit = 1000): Promise<Sale[]> {
-    return this.db.query<Sale>(
-      `SELECT * FROM sales WHERE deleted_at IS NULL AND sold_at BETWEEN ? AND ?
+  listBetween(from: number, to: number, limit = 1000): Promise<DatedSale[]> {
+    return this.db.query<DatedSale>(
+      `SELECT * FROM sales
+       WHERE deleted_at IS NULL AND status <> 'open' AND sold_at BETWEEN ? AND ?
        ORDER BY sold_at DESC LIMIT ?`,
       [from, to, limit],
+    )
+  }
+
+  listOpenBills(limit = 100): Promise<Sale[]> {
+    return this.db.query<Sale>(
+      `SELECT * FROM sales
+       WHERE deleted_at IS NULL AND status = 'open'
+       ORDER BY opened_at DESC, created_at DESC LIMIT ?`,
+      [limit],
     )
   }
 

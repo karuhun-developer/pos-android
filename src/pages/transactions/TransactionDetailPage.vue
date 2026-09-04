@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { Printer, Receipt } from 'lucide-vue-next'
 import { useSalesStore } from '@/stores/sales'
 import { useSettingsStore } from '@/stores/settings'
@@ -23,6 +24,11 @@ const items = ref<SaleItem[]>([])
 const loading = ref(true)
 
 const PAY_LABEL: Record<string, string> = { cash: 'Tunai', qris: 'QRIS', transfer: 'Transfer' }
+
+function activityTime(value: Sale): number {
+  if (value.status === 'open') return value.opened_at ?? value.created_at
+  return value.sold_at ?? value.created_at
+}
 
 onMounted(async () => {
   const res = await sales.getWithItems(String(route.params.id))
@@ -64,12 +70,19 @@ async function printReceipt() {
           <span class="font-medium">{{ sale.number }}</span>
         </div>
         <div class="mt-1.5 flex items-center justify-between text-sm">
-          <span class="text-muted-foreground">Waktu</span>
-          <span>{{ formatDateTime(sale.sold_at) }}</span>
+          <span class="text-muted-foreground">{{ sale.status === 'open' ? 'Ditahan' : 'Waktu' }}</span>
+          <span>{{ formatDateTime(activityTime(sale)) }}</span>
         </div>
-        <div class="mt-1.5 flex items-center justify-between text-sm">
+        <div v-if="sale.status === 'open'" class="mt-1.5 flex items-center justify-between gap-3 text-sm">
+          <span class="text-muted-foreground">Label</span>
+          <span class="truncate text-right font-medium">{{ sale.open_bill_label ?? 'Tanpa label' }}</span>
+        </div>
+        <div v-if="sale.status !== 'open'" class="mt-1.5 flex items-center justify-between text-sm">
           <span class="text-muted-foreground">Metode</span>
           <span>{{ PAY_LABEL[sale.payment_method] ?? sale.payment_method }}</span>
+        </div>
+        <div v-if="sale.status === 'open'" class="mt-3">
+          <Badge variant="warning">Open Bill</Badge>
         </div>
       </div>
 
@@ -99,18 +112,18 @@ async function printReceipt() {
             <span>Total</span>
             <span>{{ formatRupiah(sale.total) }}</span>
           </div>
-          <div class="flex justify-between text-sm">
+          <div v-if="sale.status !== 'open'" class="flex justify-between text-sm">
             <span class="text-muted-foreground">Bayar</span>
             <span>{{ formatRupiah(sale.paid) }}</span>
           </div>
-          <div v-if="sale.change_due > 0" class="flex justify-between text-sm">
+          <div v-if="sale.status !== 'open' && sale.change_due > 0" class="flex justify-between text-sm">
             <span class="text-muted-foreground">Kembalian</span>
             <span class="font-semibold text-success">{{ formatRupiah(sale.change_due) }}</span>
           </div>
         </div>
       </div>
 
-      <Button variant="outline" class="w-full gap-2" @click="printReceipt">
+      <Button v-if="sale.status !== 'open'" variant="outline" class="w-full gap-2" @click="printReceipt">
         <Printer class="size-4" /> Cetak Ulang Struk
       </Button>
     </div>

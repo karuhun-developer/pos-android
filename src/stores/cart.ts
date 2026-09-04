@@ -12,9 +12,26 @@ export interface CartLine {
   stock: number
 }
 
+export interface CartSnapshot {
+  readonly lines: readonly CartLine[]
+  readonly discount: number
+}
+
+export interface ActiveOpenBill {
+  readonly id: string
+  readonly label: string | null
+}
+
+export interface OpenBillCartState {
+  readonly bill: ActiveOpenBill
+  readonly snapshot: CartSnapshot
+}
+
 export const useCartStore = defineStore('cart', () => {
   const lines = ref<CartLine[]>([])
   const discount = ref(0)
+  const activeOpenBillId = ref<string | null>(null)
+  const activeOpenBillLabel = ref<string | null>(null)
 
   const count = computed(() => lines.value.reduce((s, l) => s + l.qty, 0))
   const subtotal = computed(() => lines.value.reduce((s, l) => s + l.price * l.qty, 0))
@@ -67,11 +84,37 @@ export const useCartStore = defineStore('cart', () => {
   function clear() {
     lines.value = []
     discount.value = 0
+    activeOpenBillId.value = null
+    activeOpenBillLabel.value = null
+  }
+
+  function snapshot(): CartSnapshot {
+    return {
+      lines: lines.value.map((line) => ({ ...line })),
+      discount: discount.value,
+    }
+  }
+
+  function restore(next: CartSnapshot) {
+    lines.value = next.lines.map((line) => ({ ...line }))
+    discount.value = next.discount
+  }
+
+  function markOpenBill(bill: ActiveOpenBill) {
+    activeOpenBillId.value = bill.id
+    activeOpenBillLabel.value = bill.label
+  }
+
+  function loadOpenBill(next: OpenBillCartState) {
+    restore(next.snapshot)
+    markOpenBill(next.bill)
   }
 
   return {
     lines,
     discount,
+    activeOpenBillId,
+    activeOpenBillLabel,
     count,
     subtotal,
     total,
@@ -83,5 +126,9 @@ export const useCartStore = defineStore('cart', () => {
     dec,
     remove,
     clear,
+    snapshot,
+    restore,
+    markOpenBill,
+    loadOpenBill,
   }
 })

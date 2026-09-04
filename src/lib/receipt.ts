@@ -9,10 +9,42 @@ export interface ReceiptOpts {
   width?: number // karakter per baris (monospace); default 32 ala thermal 58mm
 }
 
+type ReceiptErrorDetail =
+  | { readonly kind: 'open-sale'; readonly number: string }
+  | { readonly kind: 'missing-sold-at'; readonly number: string }
+
+export class ReceiptError extends Error {
+  readonly name = 'ReceiptError'
+
+  constructor(readonly detail: ReceiptErrorDetail) {
+    super(receiptErrorMessage(detail))
+  }
+}
+
 const PAY_LABEL: Record<string, string> = {
   cash: 'Tunai',
   qris: 'QRIS',
   transfer: 'Transfer',
+}
+
+function receiptErrorMessage(detail: ReceiptErrorDetail): string {
+  switch (detail.kind) {
+    case 'open-sale':
+      return `Open Bill ${detail.number} belum dapat dicetak`
+    case 'missing-sold-at':
+      return `Waktu pembayaran untuk transaksi ${detail.number} tidak tersedia`
+  }
+}
+
+function completedSaleTime(sale: Sale): number {
+  if (sale.status === 'open') {
+    throw new ReceiptError({ kind: 'open-sale', number: sale.number })
+  }
+  const soldAt = sale.sold_at
+  if (soldAt === null) {
+    throw new ReceiptError({ kind: 'missing-sold-at', number: sale.number })
+  }
+  return soldAt
 }
 
 /** Baris dua kolom rata kiri-kanan (monospace). */
@@ -28,6 +60,7 @@ export function buildReceipt(
   items: SaleItem[],
   opts: ReceiptOpts,
 ): ReceiptJob {
+  const soldAt = completedSaleTime(sale)
   const w = opts.width ?? 32
   const div = '-'.repeat(w)
   const lines: ReceiptLine[] = []
@@ -36,7 +69,7 @@ export function buildReceipt(
   if (opts.storeOwner) lines.push({ text: opts.storeOwner, align: 'center' })
   lines.push({ text: div })
   lines.push({ text: `No  : ${sale.number}` })
-  lines.push({ text: `Tgl : ${formatDateTime(sale.sold_at)}` })
+  lines.push({ text: `Tgl : ${formatDateTime(soldAt)}` })
   lines.push({ text: div })
 
   for (const it of items) {

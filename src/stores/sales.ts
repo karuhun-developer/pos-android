@@ -1,16 +1,25 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { getDb } from '@/db/sqlite'
-import { SaleRepository } from '@/repositories/sale.repo'
+import { SaleRepository, type DatedSale } from '@/repositories/sale.repo'
 import { SaleItemRepository } from '@/repositories/saleItem.repo'
-import { CheckoutService, type CheckoutInput, type CheckoutResult } from '@/services/checkout.service'
+import {
+  CheckoutService,
+  type CheckoutInput,
+  type CheckoutResult,
+  type CompleteOpenBillInput,
+  type HoldOpenBillInput,
+  type OpenBillAccessInput,
+  type ReholdOpenBillInput,
+} from '@/services/checkout.service'
 import type { Sale, SaleItem } from '@/db/types'
 import { presetRange, type DateRange } from '@/lib/dateRange'
 import { formatDateTime } from '@/lib/datetime'
 import type { ExportSheet } from '@/lib/xlsx'
 
 export const useSalesStore = defineStore('sales', () => {
-  const recent = ref<Sale[]>([])
+  const recent = ref<DatedSale[]>([])
+  const openBills = ref<Sale[]>([])
   const loading = ref(false)
   // Default: bulan berjalan. Semua isi `recent` selalu dalam rentang ini.
   const range = ref<DateRange>(presetRange('month'))
@@ -33,7 +42,12 @@ export const useSalesStore = defineStore('sales', () => {
 
   async function load() {
     loading.value = true
-    recent.value = await saleRepo().listBetween(range.value.from, range.value.to)
+    const [datedSales, open] = await Promise.all([
+      saleRepo().listBetween(range.value.from, range.value.to),
+      saleRepo().listOpenBills(),
+    ])
+    recent.value = datedSales
+    openBills.value = open
     loading.value = false
   }
 
@@ -52,6 +66,33 @@ export const useSalesStore = defineStore('sales', () => {
 
   async function checkout(input: CheckoutInput): Promise<CheckoutResult> {
     const res = await new CheckoutService(getDb()).checkout(input)
+    await load()
+    return res
+  }
+
+  async function hold(input: HoldOpenBillInput): Promise<CheckoutResult> {
+    const res = await new CheckoutService(getDb()).hold(input)
+    await load()
+    return res
+  }
+
+  function resume(input: OpenBillAccessInput): Promise<CheckoutResult> {
+    return new CheckoutService(getDb()).resume(input)
+  }
+
+  async function rehold(input: ReholdOpenBillInput): Promise<CheckoutResult> {
+    const res = await new CheckoutService(getDb()).rehold(input)
+    await load()
+    return res
+  }
+
+  async function discard(input: OpenBillAccessInput): Promise<void> {
+    await new CheckoutService(getDb()).discard(input)
+    await load()
+  }
+
+  async function completeOpenBill(input: CompleteOpenBillInput): Promise<CheckoutResult> {
+    const res = await new CheckoutService(getDb()).completeOpenBill(input)
     await load()
     return res
   }
@@ -87,5 +128,21 @@ export const useSalesStore = defineStore('sales', () => {
     ]
   }
 
-  return { recent, loading, range, summary, load, setRange, getWithItems, checkout, buildExport }
+  return {
+    recent,
+    openBills,
+    loading,
+    range,
+    summary,
+    load,
+    setRange,
+    getWithItems,
+    checkout,
+    hold,
+    resume,
+    rehold,
+    discard,
+    completeOpenBill,
+    buildExport,
+  }
 })

@@ -225,6 +225,39 @@ forbidden_entity`.
 6. **FK longgar**: server tidak menolak insert karena parent belum ada (urutan sync
    antar-entity tak dijamin). Relasi disimpan by-id; integritas ditegakkan FE.
 
+### 3.5 Open Bill — lifecycle sales tanpa endpoint baru
+
+Open Bill memakai entity allowlist **sales** dan **sale_items** yang sudah ada;
+tidak ada route atau RPC Open Bill. Field pada **sales** bersifat **additive** di
+API v1, jadi tetap memakai **POST /sync/push** dan **GET /sync/pull**. Semua
+aturan **ChangeEnvelope** di atas tetap berlaku: insert/update membawa full row,
+sedangkan discard memakai **op='delete'** dengan tombstone **deleted_at**.
+
+- **Hold / re-hold:** push **sales.status='open'**, **open_bill_label**,
+  **opened_at**, **origin_device_id**, dan **sold_at:null**, bersama
+  **sale_items** yang berisi snapshot. Tidak ada **cashflow_entries** karena
+  hold belum menjadi penjualan. Re-hold men-tombstone snapshot item aktif lalu
+  mengirim set snapshot baru; nama/harga tidak dibaca ulang dari katalog.
+- **Complete/pay:** update row **sales** dengan **id** dan **number** yang sama
+  ke **status='completed'**; pembayaran dan **sold_at** baru menjadi bermakna
+  pada transisi ini. Stok/cashflow yang ditulis completion adalah perubahan
+  entity biasa dalam sync, bukan endpoint baru.
+- **Discard:** push delete generik untuk sale Open Bill. Hasilnya tombstone yang
+  dipull ke perangkat lain; jangan mengganti **status** menjadi **void**.
+- **Void:** hanya lifecycle **completed → void**. Void bukan cara membuang Open
+  Bill.
+
+**origin_device_id** adalah UUID perangkat kasir asal dari payload bisnis dan
+memang dipulangkan ke FE. Ini berbeda dari **origin_device** audit milik server
+(dari header **X-Device-Id**), yang tidak pernah muncul dalam pull. Perangkat
+asal saja boleh resume, re-hold, discard, atau pay; perangkat lain hanya membaca
+Open Bill yang tersinkron.
+
+Kompatibilitas tetap additive: record lama dapat membawa
+**open_bill_label**/**opened_at**/**origin_device_id** sebagai **null**, sementara
+klien yang mendukung Open Bill wajib menerima **sold_at:null** bila
+**status='open'**.
+
 ---
 
 ## 4. Media
@@ -297,8 +330,11 @@ bersifat lokal-FE; server menerimanya tapi mengabaikan untuk logika (kecuali ech
 | number | string | nomor struk device-prefixed; unik per toko |
 | subtotal / discount / tax / total / paid / change_due | int | minor units |
 | payment_method | string | `cash`\|`qris`\|`transfer`\|… |
-| status | `completed`\|`void` | |
-| sold_at | epoch ms | |
+| status | `open`\|`completed`\|`void` | `open` belum menjadi penjualan; lihat §3.5 |
+| open_bill_label | string\|null | label Open Bill; `null` untuk sale biasa/lama |
+| opened_at | epoch ms\|null | waktu hold; `null` untuk sale biasa/lama |
+| origin_device_id | uuid\|null | perangkat kasir asal; bukan `origin_device` audit server |
+| sold_at | epoch ms\|null | `null` saat `status="open"`; terisi saat completed/void |
 
 ### sale_items
 | field | tipe | ket |
