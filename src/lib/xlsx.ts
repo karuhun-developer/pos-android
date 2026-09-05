@@ -156,7 +156,7 @@ async function preflightXlsx(bytes: Uint8Array): Promise<void> {
   const names = zipEntryNames(bytes)
   const required = ['[Content_Types].xml', '_rels/.rels', 'xl/workbook.xml', 'xl/_rels/workbook.xml.rels']
   if (required.some((name) => !names.has(name)) || ![...names].some((name) => name.startsWith('xl/worksheets/') && name.endsWith('.xml'))) rejectSpreadsheet()
-  if ([...names].some((name) => name.startsWith('xl/externalLinks/') || /(?:^|\/)vbaProject(?:Signature)?\.bin$/i.test(name))) rejectSpreadsheet()
+  if ([...names].some((name) => name.startsWith('xl/externalLinks/') || name.startsWith('xl/embeddings/') || /(?:^|\/)vbaProject(?:Signature)?\.bin$/i.test(name))) rejectSpreadsheet()
 
   const { unzipSync } = await import('fflate')
   const entries = unzipSync(bytes)

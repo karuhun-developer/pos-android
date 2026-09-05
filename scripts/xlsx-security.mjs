@@ -8,7 +8,8 @@ import { chromium } from 'playwright'
 const BASE = process.env.BASE ?? 'http://127.0.0.1:4173'
 const ARTIFACT_DIR = process.env.ARTIFACT_DIR ?? await mkdtemp(join(tmpdir(), 'pos-kacaw-xlsx-security-'))
 const PRODUCT_COLUMNS = ['nama', 'kategori', 'sku', 'barcode', 'tipe_barcode', 'harga_jual', 'harga_modal', 'lacak_stok', 'stok', 'aktif']
-const REJECTED_PRODUCT_NAMES = ['Formula product', 'CSV formula product', 'Macro product', 'Linked product']
+const REJECTED_PRODUCT_NAMES = ['Formula product', 'CSV formula product', 'Macro product', 'Linked product', 'Embedded package product']
+const EXPECT_EMBEDDED_WRITE = process.env.EXPECT_EMBEDDED_WRITE === '1'
 const encoder = new TextEncoder()
 const decoder = new TextDecoder()
 
@@ -44,7 +45,7 @@ function concat(parts) {
 }
 
 function zip(entries) {
-  const files = entries.map(([name, content]) => ({ name: encoder.encode(name), content: encoder.encode(content) }))
+  const files = entries.map(([name, content]) => ({ name: encoder.encode(name), content: typeof content === 'string' ? encoder.encode(content) : content }))
   let offset = 0
   const local = []
   const central = []
@@ -74,19 +75,21 @@ function cell(reference, value, formula) {
   return '<c r="' + reference + '" t="inlineStr"><is><t>' + xml(String(value)) + '</t></is></c>'
 }
 
-function workbook({ rows, formula = false, macro = false, external = false }) {
+function workbook({ rows, formula = false, macro = false, external = false, embedded = false }) {
   const rowXml = [PRODUCT_COLUMNS, ...rows].map((row, rowIndex) => {
     const cells = row.map((value, columnIndex) => cell(column(columnIndex) + String(rowIndex + 1), value, formula && rowIndex === 1 && columnIndex === 0 ? 'CONCAT("unsafe", " formula")' : null)).join('')
     return '<row r="' + String(rowIndex + 1) + '">' + cells + '</row>'
   }).join('')
-  return zip([
+  const entries = [
     ['[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>'],
     ['_rels/.rels', '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'],
     ['xl/workbook.xml', '<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Produk" sheetId="1" r:id="rId1"/></sheets></workbook>'],
     ['xl/_rels/workbook.xml.rels', '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>' + (external ? '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/externalLink" Target="https://example.invalid/book.xlsx" TargetMode="External"/>' : '') + '</Relationships>'],
     ['xl/worksheets/sheet1.xml', '<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>' + rowXml + '</sheetData></worksheet>'],
     ...(macro ? [['xl/vbaProject.bin', 'macro']] : []),
-  ])
+  ]
+  if (embedded) entries.push(['xl/embeddings/embeddedWorkbook.xlsx', workbook({ rows: [] })])
+  return zip(entries)
 }
 
 function readU16(bytes, offset) {
@@ -175,11 +178,41 @@ async function main() {
     check(await error.isVisible(), 'Rejected upload reached import preview')
     check(await page.getByRole('button', { name: /^Impor \d+ Baris$/ }).count() === 0, 'Rejected upload reached import preview')
   }
+  const checkEmbeddedWorkbook = async () => {
+    const embedded = workbook({ rows: [['Embedded package product', '', '', '', 'CODE128', '1', '1', 'tidak', '0', 'ya']], embedded: true })
+    await openImport()
+    await upload('embedded-package.xlsx', embedded)
+    if (!EXPECT_EMBEDDED_WRITE) {
+      const error = page.getByText('Berkas spreadsheet tidak valid atau tidak didukung.', { exact: true })
+      await error.waitFor()
+      const errorText = await error.textContent()
+      const screenshotPath = join(ARTIFACT_DIR, 'embedded-package-rejection.png')
+      await writeFile(join(ARTIFACT_DIR, 'embedded-package-rejection.txt'), `${errorText ?? ''}\n`)
+      await page.screenshot({ path: screenshotPath, fullPage: true })
+      check(errorText === 'Berkas spreadsheet tidak valid atau tidak didukung.', 'Embedded package did not show the safe error')
+      check(await page.getByRole('button', { name: /^Impor \d+ Baris$/ }).count() === 0, 'Embedded package reached import preview')
+      check(await productCount() === 0, 'Embedded package changed product count')
+      return
+    }
+
+    await page.getByText('1 baris siap diimpor').waitFor()
+    await page.getByRole('button', { name: 'Impor 1 Baris' }).click()
+    await page.getByText('1 produk diimpor').waitFor()
+    const count = await productCount()
+    const productVisible = await page.getByText('Embedded package product', { exact: true }).isVisible()
+    const screenshotPath = join(ARTIFACT_DIR, 'embedded-package-red.png')
+    const summaryPath = join(ARTIFACT_DIR, 'embedded-package-red.json')
+    await page.screenshot({ path: screenshotPath, fullPage: true })
+    await writeFile(summaryPath, JSON.stringify({ count, productVisible, screenshotPath }, null, 2) + '\n')
+    check(count === 1 && productVisible, 'Embedded package did not demonstrate the reported product write')
+    throw new Error('SECURITY REGRESSION: embedded workbook package reached preview and wrote a product; evidence=' + summaryPath)
+  }
 
   try {
     await page.goto(BASE + '/products', { waitUntil: 'networkidle' })
     await page.getByTitle('Impor / ekspor produk').waitFor()
     check(await productCount() === 0, 'Fresh production browser context did not start with zero products')
+    await checkEmbeddedWorkbook()
 
     await reject('formula.xlsx', workbook({ rows: [['Formula product', '', '', '', 'CODE128', '1', '1', 'tidak', '0', 'ya']], formula: true }), 'Berkas spreadsheet tidak valid atau tidak didukung.')
 
