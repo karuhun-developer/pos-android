@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFile } from 'node:fs/promises'
 
 import {
   clearAccountCredential,
@@ -17,10 +18,11 @@ function fingerprint(value) {
   return hash >>> 0
 }
 
-function createLegacyStore(initialValue = null) {
+function createLegacyStore(initialValue = null, options = {}) {
   let value = initialValue
   let writes = 0
   let removals = 0
+  let failRemove = options.failRemove ?? false
 
   return {
     async read() {
@@ -32,7 +34,11 @@ function createLegacyStore(initialValue = null) {
     },
     async remove() {
       removals += 1
+      if (failRemove) throw new Error('legacy removal failed')
       value = null
+    },
+    setRemoveFailure(nextValue) {
+      failRemove = nextValue
     },
     snapshot() {
       return { hasValue: value !== null, writes, removals }
@@ -40,10 +46,11 @@ function createLegacyStore(initialValue = null) {
   }
 }
 
-function createSecureStore(initialValue = null) {
+function createSecureStore(initialValue = null, options = {}) {
   let value = initialValue
   let writes = 0
   let removals = 0
+  const failRemove = options.failRemove ?? false
 
   return {
     async read() {
@@ -55,6 +62,7 @@ function createSecureStore(initialValue = null) {
     },
     async remove() {
       removals += 1
+      if (failRemove) throw new Error('secure removal failed')
       value = null
     },
     snapshot() {
@@ -146,13 +154,13 @@ async function testAndroidUnavailableFailsClosed() {
     name: 'SecureCredentialUnavailableError',
   })
 
-  // Then: no session is returned and the plaintext fallback is erased.
+  // Then: no session is returned but the only recoverable credential remains.
   assert.deepEqual(loaded, { kind: 'secure-unavailable' })
-  assert.deepEqual(legacy.snapshot(), { hasValue: false, writes: 0, removals: 2 })
-  console.log('PASS unavailable Android bridge fails closed')
+  assert.deepEqual(legacy.snapshot(), { hasValue: true, writes: 0, removals: 0 })
+  console.log('PASS unavailable Android bridge fails closed without credential loss')
 }
 
-async function testAndroidFailedPersistErasesLegacyCredential() {
+async function testAndroidSecureWriteFailurePreservesLegacyCredential() {
   // Given: an old plaintext credential and an Android bridge that cannot persist.
   const legacy = createLegacyStore(REDACTED_FIXTURE)
   const storage = {
@@ -171,18 +179,118 @@ async function testAndroidFailedPersistErasesLegacyCredential() {
     },
   }
 
-  // When: a fresh credential cannot be secured.
+  // When: migration and a fresh Android authentication cannot secure a credential.
+  const loaded = await loadAccountCredential(storage)
   await assert.rejects(() => persistAccountCredential(storage, REDACTED_FIXTURE), {
     name: 'SecureCredentialUnavailableError',
   })
 
-  // Then: Android never retains the plaintext fallback.
-  assert.deepEqual(legacy.snapshot(), { hasValue: false, writes: 0, removals: 1 })
-  console.log('PASS failed Android persist erases plaintext fallback')
+  // Then: Android fails closed without deleting the only recoverable credential.
+  assert.deepEqual(loaded, { kind: 'secure-unavailable' })
+  assert.deepEqual(legacy.snapshot(), { hasValue: true, writes: 0, removals: 0 })
+  console.log('PASS secure-write failure preserves legacy credential')
 }
 
-await testAndroidSecureStoreReadDelete()
-await testAndroidLegacyMigrationErasesPlaintext()
-await testBrowserKeepsExistingPersistence()
-await testAndroidUnavailableFailsClosed()
-await testAndroidFailedPersistErasesLegacyCredential()
+async function testAndroidLegacyEraseFailureRequiresExplicitRetry() {
+  // Given: Android has a legacy credential and its plaintext erase initially fails.
+  const legacy = createLegacyStore(REDACTED_FIXTURE, { failRemove: true })
+  const secure = createSecureStore()
+  const storage = { kind: 'android', legacy, secure }
+
+  // When: migration writes securely but cannot erase the legacy value.
+  const incomplete = await loadAccountCredential(storage)
+
+  // Then: no session is claimed, both locations are visible to recovery, and retry can finish.
+  assert.deepEqual(incomplete, { kind: 'migration-incomplete' })
+  assert.deepEqual(legacy.snapshot(), { hasValue: true, writes: 0, removals: 1 })
+  assert.deepEqual(secure.snapshot(), { hasValue: true, writes: 1, removals: 0, fingerprint: fingerprint(REDACTED_FIXTURE) })
+  legacy.setRemoveFailure(false)
+  const retried = await loadAccountCredential(storage)
+  assert.equal(retried.kind, 'loaded')
+  assert.deepEqual(legacy.snapshot(), { hasValue: false, writes: 0, removals: 2 })
+  console.log('PASS legacy erase failure is visible and retried')
+}
+
+async function testAndroidAuthLegacyEraseFailureIsRecoverable() {
+  // Given: a legacy credential cannot be erased after a successful secure write.
+  const legacy = createLegacyStore(REDACTED_FIXTURE, { failRemove: true })
+  const secure = createSecureStore()
+  const storage = { kind: 'android', legacy, secure }
+
+  // When: a new Android authentication persists its credential.
+  await assert.rejects(() => persistAccountCredential(storage, REDACTED_FIXTURE), {
+    name: 'LegacyCredentialRemovalError',
+  })
+
+  // Then: the secret is not silently cleared or reported as a successful session.
+  assert.deepEqual(legacy.snapshot(), { hasValue: true, writes: 0, removals: 1 })
+  assert.deepEqual(secure.snapshot(), { hasValue: true, writes: 1, removals: 0, fingerprint: fingerprint(REDACTED_FIXTURE) })
+  console.log('PASS auth migration erase failure remains recoverable')
+}
+
+async function testLogoutSecureDeleteFailureKeepsSessionState() {
+  // Given: secure credential deletion fails during logout.
+  const legacy = createLegacyStore(REDACTED_FIXTURE)
+  const secure = createSecureStore(REDACTED_FIXTURE, { failRemove: true })
+  const storage = { kind: 'android', legacy, secure }
+
+  // When: logout clears credentials.
+  await assert.rejects(() => clearAccountCredential(storage), {
+    name: 'SecureCredentialUnavailableError',
+  })
+
+  // Then: the secure secret remains and production orders state clearing after deletion.
+  assert.deepEqual(secure.snapshot(), { hasValue: true, writes: 0, removals: 1, fingerprint: fingerprint(REDACTED_FIXTURE) })
+  assert.deepEqual(legacy.snapshot(), { hasValue: false, writes: 0, removals: 1 })
+  const accountSource = await readFile(new URL('../src/stores/account.ts', import.meta.url), 'utf8')
+  const clearSession = accountSource.match(/async function clearSession\(\): Promise<void> \{([\s\S]*?)\n  \}/)
+  assert.ok(clearSession, 'account store must retain a clearSession implementation')
+  assert.ok(
+    clearSession[1].indexOf('await clearAccountCredential') < clearSession[1].indexOf('token.value = null'),
+    'logout must not clear in-memory authentication before secure credential deletion succeeds',
+  )
+  console.log('PASS logout secure-delete failure keeps session state')
+}
+
+async function testLogoutSecureDeleteFailureIsVisibleInUi() {
+  // Given: the explicit logout path can reject when secure deletion fails.
+  const connectPageSource = await readFile(new URL('../src/pages/settings/ConnectPage.vue', import.meta.url), 'utf8')
+
+  // When: the page handles the user-triggered logout action.
+
+  // Then: it must surface a meaningful Indonesian error without exposing credential data.
+  assert.match(
+    connectPageSource,
+    /async function onLogout\(\) \{[\s\S]*?try \{[\s\S]*?await account\.logout\(\)[\s\S]*?\} catch \(error\) \{[\s\S]*?error instanceof SecureCredentialUnavailableError[\s\S]*?account\.error = 'Gagal keluar dengan aman\. Kredensial perangkat belum dihapus\.'/,
+    'logout UI must surface a meaningful Indonesian secure-delete error',
+  )
+  console.log('PASS logout secure-delete failure is visible in UI')
+}
+
+const tests = [
+  testAndroidSecureStoreReadDelete,
+  testAndroidLegacyMigrationErasesPlaintext,
+  testBrowserKeepsExistingPersistence,
+  testAndroidUnavailableFailsClosed,
+  testAndroidSecureWriteFailurePreservesLegacyCredential,
+  testAndroidLegacyEraseFailureRequiresExplicitRetry,
+  testAndroidAuthLegacyEraseFailureIsRecoverable,
+  testLogoutSecureDeleteFailureKeepsSessionState,
+  testLogoutSecureDeleteFailureIsVisibleInUi,
+]
+
+let failures = 0
+for (const test of tests) {
+  try {
+    await test()
+  } catch (error) {
+    failures += 1
+    const message = error instanceof Error ? error.message : String(error)
+    console.error('FAIL ' + test.name + ': ' + message)
+  }
+}
+
+if (failures > 0) {
+  console.error('FAILED ' + failures + ' focused credential-security cases')
+  process.exitCode = 1
+}

@@ -24,6 +24,7 @@ export type AccountCredentialStorage =
 export type LoadedAccountCredential =
   | { readonly kind: 'loaded'; readonly value: string }
   | { readonly kind: 'missing' }
+  | { readonly kind: 'migration-incomplete' }
   | { readonly kind: 'secure-unavailable' }
 
 export class SecureCredentialUnavailableError extends Error {
@@ -31,6 +32,16 @@ export class SecureCredentialUnavailableError extends Error {
 
   constructor() {
     super('Penyimpanan kredensial aman Android tidak tersedia.')
+  }
+}
+
+export class LegacyCredentialRemovalError extends Error {
+  readonly name = 'LegacyCredentialRemovalError'
+
+  constructor() {
+    super(
+      'Kredensial aman sudah tersimpan, tetapi token lama belum dapat dihapus. Coba lagi untuk menyelesaikan migrasi keamanan.',
+    )
   }
 }
 
@@ -54,12 +65,13 @@ async function loadAndroidAccountCredential(
   try {
     secureValue = await storage.secure.read()
   } catch {
-    await storage.legacy.remove()
     return { kind: 'secure-unavailable' }
   }
 
   if (secureValue) {
-    await storage.legacy.remove()
+    if (!(await eraseLegacyCredential(storage.legacy))) {
+      return { kind: 'migration-incomplete' }
+    }
     return { kind: 'loaded', value: secureValue }
   }
 
@@ -69,11 +81,12 @@ async function loadAndroidAccountCredential(
   try {
     await storage.secure.write(legacyValue)
   } catch {
-    await storage.legacy.remove()
     return { kind: 'secure-unavailable' }
   }
 
-  await storage.legacy.remove()
+  if (!(await eraseLegacyCredential(storage.legacy))) {
+    return { kind: 'migration-incomplete' }
+  }
   return { kind: 'loaded', value: legacyValue }
 }
 
@@ -89,10 +102,11 @@ export async function persistAccountCredential(
       try {
         await storage.secure.write(value)
       } catch {
-        await storage.legacy.remove()
         throw new SecureCredentialUnavailableError()
       }
-      await storage.legacy.remove()
+      if (!(await eraseLegacyCredential(storage.legacy))) {
+        throw new LegacyCredentialRemovalError()
+      }
   }
 }
 
@@ -107,9 +121,20 @@ export async function clearAccountCredential(
       try {
         await storage.secure.remove()
       } catch {
+        await eraseLegacyCredential(storage.legacy)
         throw new SecureCredentialUnavailableError()
-      } finally {
-        await storage.legacy.remove()
       }
+      if (!(await eraseLegacyCredential(storage.legacy))) {
+        throw new LegacyCredentialRemovalError()
+      }
+  }
+}
+
+async function eraseLegacyCredential(legacy: LegacyCredentialStore): Promise<boolean> {
+  try {
+    await legacy.remove()
+    return true
+  } catch {
+    return false
   }
 }

@@ -22,6 +22,7 @@ import {
   loadAccountCredential,
   persistAccountCredential,
   type AccountCredentialStorage,
+  LegacyCredentialRemovalError,
   SecureCredentialUnavailableError,
 } from '@/services/auth/accountCredentials'
 import { androidSecureCredentialStore } from '@/services/auth/androidSecureCredentials'
@@ -99,6 +100,15 @@ export const useAccountStore = defineStore('account', () => {
       stores.value = []
       currentStoreId.value = null
       error.value = 'Penyimpanan kredensial aman Android tidak tersedia. Silakan masuk kembali.'
+      return
+    }
+    if (credential.kind === 'migration-incomplete') {
+      token.value = null
+      user.value = null
+      stores.value = []
+      currentStoreId.value = null
+      error.value =
+        'Token lama belum dapat dihapus. Coba lagi untuk menyelesaikan migrasi keamanan sebelum masuk kembali.'
       return
     }
 
@@ -231,24 +241,25 @@ export const useAccountStore = defineStore('account', () => {
   }
 
   async function clearSession(): Promise<void> {
+    await clearAccountCredential(credentialStorage())
     token.value = null
     user.value = null
     stores.value = []
     currentStoreId.value = null
-    try {
-      await clearAccountCredential(credentialStorage())
-    } finally {
-      await repo().setMany({
-        [KEYS.user]: '',
-        [KEYS.stores]: '',
-        [KEYS.storeId]: '',
-      })
-    }
+    await repo().setMany({
+      [KEYS.user]: '',
+      [KEYS.stores]: '',
+      [KEYS.storeId]: '',
+    })
   }
 
   function clearSessionAfterUnauthorized(): void {
     void clearSession().catch((e: unknown) => {
       if (e instanceof SecureCredentialUnavailableError) {
+        error.value = e.message
+        return
+      }
+      if (e instanceof LegacyCredentialRemovalError) {
         error.value = e.message
         return
       }

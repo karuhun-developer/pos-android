@@ -15,6 +15,10 @@ import { Capacitor } from '@capacitor/core'
 import { useAccountStore } from '@/stores/account'
 import { useSyncStore } from '@/stores/sync'
 import { ENV_GOOGLE_CLIENT_ID } from '@/services/api/config'
+import {
+  LegacyCredentialRemovalError,
+  SecureCredentialUnavailableError,
+} from '@/services/auth/accountCredentials'
 
 const account = useAccountStore()
 const sync = useSyncStore()
@@ -77,7 +81,18 @@ async function onGoogleLogin() {
 
 async function onLogout() {
   await sync.stop()
-  await account.logout()
+  try {
+    await account.logout()
+  } catch (error) {
+    if (
+      error instanceof SecureCredentialUnavailableError ||
+      error instanceof LegacyCredentialRemovalError
+    ) {
+      account.error = 'Gagal keluar dengan aman. Kredensial perangkat belum dihapus.'
+      return
+    }
+    account.error = 'Gagal keluar. Coba lagi.'
+  }
 }
 
 // Ganti outlet = destruktif (data lokal outlet lama di-reset) → wajib konfirmasi.
@@ -188,6 +203,7 @@ const syncLabel = computed(() => {
         @submit="onSubmit" @google-login="onGoogleLogin"
       />
       <template v-else>
+        <p v-if="error" class="flex items-start gap-1.5 text-xs text-destructive" role="alert"><AlertCircle class="mt-0.5 size-3.5 shrink-0" /> {{ error }}</p>
         <Card class="border-primary/30 bg-primary/5">
           <CardContent class="space-y-1 p-4">
             <div class="flex items-center gap-2"><Check class="size-4 text-success" /><p class="text-sm font-semibold">{{ user?.name }}</p></div>
