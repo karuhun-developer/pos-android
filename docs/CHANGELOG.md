@@ -5,6 +5,23 @@ Tiap phase = satu rilis minor.
 
 ## [Unreleased]
 
+## [0.3.4] — 2026-09-05
+
+### Fixed — Recovery sync, retry manual, cashflow lokal, dan keamanan outlet
+- Seed sembilan kategori cashflow bawaan kini dibuat device-local dalam keadaan
+  bersih (`dirty=0`, tanpa outbox), sehingga recovery sebelum push tidak membuat
+  envelope upload untuk baseline perangkat. Migrasi client v6 membersihkan hanya
+  cohort lengkap sembilan default legacy pada timestamp yang sama; satu row ekstra,
+  diubah, remote, terhapus, versioned, atau outboxed mempertahankan seluruh cohort
+  untuk sync.
+- Panel Store/Koneksi kini diperbarui setelah siklus startup dan periodik engine:
+  penolakan push tetap `failed`, mengalahkan label sukses, dan hanya tombol
+  **Coba lagi** yang mengantrekannya kembali (tanpa retry otomatis).
+- Pindah atau menambah outlet kini diblokir selama masih ada perubahan `pending`
+  atau `failed`; data lokal baru di-reset setelah antrean aman disinkronkan.
+
+## [0.3.3] — 2026-09-04
+
 ### Added — Open Bill: tahan transaksi tanpa efek finansial
 - Lifecycle Open Bill terdokumentasi: **open → completed**, **open → tombstoned**
   untuk discard, dan **completed → void**. Hold sudah memiliki nomor sale dan

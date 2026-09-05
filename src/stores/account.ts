@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { getDb } from '@/db/sqlite'
 import { resetLocalBusinessData } from '@/db/reset'
 import { SettingsRepository } from '@/repositories/settings.repo'
+import { OutboxRepository } from '@/repositories/outbox.repo'
 import { useSettingsStore } from '@/stores/settings'
 import { useMediaStore } from '@/stores/media'
 import {
@@ -15,6 +16,8 @@ import {
 } from '@/services/api/client'
 import { ENV_API_BASE_URL } from '@/services/api/config'
 import { signInWithGoogle, signOutGoogle } from '@/services/auth/google'
+import { SYNC_ENTITIES } from '@/services/sync/applyPull'
+import { SyncEngine } from '@/services/sync/SyncEngine'
 
 /** Semua device-local (disimpan di tabel settings, tidak ikut sync). */
 const KEYS = {
@@ -24,6 +27,9 @@ const KEYS = {
   stores: 'account_stores',
   storeId: 'account_store_id',
 } as const
+
+const UNRESOLVED_OUTBOX_ERROR =
+  'Perubahan belum aman disinkronkan. Selesaikan sinkronisasi atau gunakan Coba lagi untuk perubahan gagal sebelum pindah outlet.'
 
 /**
  * Akun cloud POS Pro: sumber tunggal token bearer + toko aktif. Beda dengan
@@ -120,14 +126,24 @@ export const useAccountStore = defineStore('account', () => {
    * dibuang (`resetLocalBusinessData`) + cache media dikosongkan supaya tidak
    * bocor ke outlet baru; siklus sync berikutnya menarik ulang data outlet baru
    * dari nol. Antrean outbox pending sebaiknya sudah di-push sebelum ini
-   * (ConnectPage memanggil `sync.syncNow()` dulu).
+   * (ConnectPage menjalankan sync normal dulu). Guard ini tetap melindungi
+   * pemanggil lain agar outbox pending/gagal tidak ikut terhapus.
    */
-  async function setCurrentStore(id: string): Promise<void> {
-    if (id === currentStoreId.value) return
-    await resetLocalBusinessData()
-    useMediaStore().clear()
-    currentStoreId.value = id
-    await repo().set(KEYS.storeId, id)
+  async function setCurrentStore(id: string): Promise<boolean> {
+    if (id === currentStoreId.value) return true
+    return SyncEngine.duringOutletTransition(async () => {
+      const outbox = new OutboxRepository(getDb())
+      await outbox.recoverMissingDirty(SYNC_ENTITIES)
+      if ((await outbox.countUnresolved()) > 0) {
+        error.value = UNRESOLVED_OUTBOX_ERROR
+        return false
+      }
+      await resetLocalBusinessData()
+      useMediaStore().clear()
+      currentStoreId.value = id
+      await repo().set(KEYS.storeId, id)
+      return true
+    })
   }
 
   async function persistStores(): Promise<void> {
@@ -142,8 +158,7 @@ export const useAccountStore = defineStore('account', () => {
       const res = await api.createStore(name)
       stores.value = res.stores
       await persistStores()
-      await setCurrentStore(String(res.store.id))
-      return true
+      return await setCurrentStore(String(res.store.id))
     } catch (e) {
       error.value = e instanceof Error ? e.message : String(e)
       return false

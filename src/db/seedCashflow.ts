@@ -27,9 +27,9 @@ export const DEFAULT_CASHFLOW_CATEGORIES: ReadonlyArray<{
 /**
  * Isi kategori cashflow default yang belum ada. **Idempotent by name**: kategori
  * yang namanya sudah ada (belum terhapus) dilewati, jadi aman dipanggil berulang
- * (tiap boot) tanpa bikin duplikat. Baris ditulis device-local (`dirty=1`, tanpa
- * baris `outbox`) — sama seperti seed migration, jadi default tak ikut ter-push
- * ke server. `db` bisa handle utama maupun tx migration (sama-sama `Db`).
+ * (tiap boot) tanpa bikin duplikat. Baris ditulis device-local (`dirty=0`, tanpa
+ * baris `outbox`) sehingga recovery sync tidak mengantrekannya untuk di-push.
+ * `db` bisa handle utama maupun tx migration (sama-sama `Db`).
  */
 export async function seedDefaultCashflowCategories(db: Db): Promise<void> {
   const t = nowMs()
@@ -43,7 +43,7 @@ export async function seedDefaultCashflowCategories(db: Db): Promise<void> {
     await db.run(
       `INSERT INTO cashflow_categories
          (id, name, type, is_system, sort_order, created_at, updated_at, dirty, sync_version)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 1, 0)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0)`,
       [uuid(), c.name, c.type, c.isSystem, i, t, t],
     )
   }

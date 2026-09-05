@@ -16,6 +16,19 @@ termasuk entri manual seperti gaji karyawan atau belanja stok.
 - `cashflow_categories`: `name`, `type` (`income`/`expense`), `is_system`, `sort_order`.
   Seed bawaan: **Penjualan** (sistem, non-hapus), Modal/Setoran, Belanja Stok,
   Gaji Karyawan, Operasional.
+- Kesembilan kategori bawaan (termasuk Pendapatan Lain, Sewa Tempat, Listrik &
+  Air, dan Lain-lain) adalah baseline **device-local**. Saat seed awal, boot,
+  atau reset lokal, semuanya dibuat bersih (`dirty=0`) tanpa `outbox`, sehingga
+  tidak terunggah ke POS Pro. Setelah pengguna mengubahnya, kategori tersebut
+  kembali menjadi perubahan bisnis normal dan ikut mekanisme outbox/sync.
+- Migrasi legacy v6 hanya membersihkan **seluruh cohort seed lengkap**: pada
+  satu `created_at` harus ada tepat sembilan row total; masing-masing wajib
+  aktif, non-enqueued, `dirty=1`, `sync_version=0`, `remote_id` null,
+  `created_at=updated_at`, dan cocok tepat sekali dengan satu default historis
+  menurut `name`/`type`/`is_system`/`sort_order`. Satu row ekstra, diubah,
+  remote, terhapus, versioned, atau outboxed memblokir pembersihan seluruh
+  cohort. Row tanpa provenance permanen tidak dapat dibedakan bila persis
+  menggantikan default dalam cohort sembilan-row yang sama.
 - `cashflow_entries`: `category_id`, `direction` (`debit`=masuk / `credit`=keluar),
   `amount`, `source` (`manual`/`sale`), `source_ref`, `note`, `occurred_at`, `session_id`.
 - Entri dari checkout dibuat otomatis (`source='sale'`) — read-only di ledger.

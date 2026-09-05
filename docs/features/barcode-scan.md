@@ -51,7 +51,7 @@ migrate**.
 **Keunikan barcode tidak ditegakkan di server.** `PushChanges` cuma menangkap
 `SyncRejection`; unique constraint bakal melempar `QueryException` mentah dan
 menggagalkan seluruh batch push — plus baris outbox yang ditolak berstatus
-`failed` permanen, dan flag `dirty=1`-nya bakal terus memblokir `applyPull` untuk
+`failed` sampai pengguna memilih **Coba lagi** secara eksplisit, dan flag `dirty=1`-nya bakal terus memblokir `applyPull` untuk
 produk itu. Duplikat dicegah di client: validasi form + skip saat impor.
 
 ## 2. Lihat / bagikan barcode

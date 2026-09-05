@@ -9,7 +9,6 @@ export interface SyncApi {
 import { OutboxRepository } from '@/repositories/outbox.repo'
 import { SyncStateRepository } from '@/repositories/syncState.repo'
 import { applyPulledRows, SYNC_ENTITIES } from './applyPull'
-import type { OutboxRow } from '@/db/types'
 import { getDb } from '@/db/sqlite'
 
 /**
@@ -20,10 +19,16 @@ import { getDb } from '@/db/sqlite'
  * `isReady()` = sudah login + ada toko aktif. Kalau belum → status 'disabled'.
  */
 export class SyncEngine {
+  private static readonly instances = new Set<SyncEngine>()
+  private static transitionBarrier: Promise<void> | null = null
+  private static releaseTransitionBarrier: (() => void) | null = null
+  private static transitionQueue: Promise<void> = Promise.resolve()
+  private static queuedTransitions = 0
+
   private _status: SyncStatus = 'disabled'
   private _lastError: string | null = null
   private timer: ReturnType<typeof setInterval> | null = null
-  private running = false
+  private activeCycle: Promise<void> | null = null
   private outbox = new OutboxRepository(getDb())
   private state = new SyncStateRepository(getDb())
 
@@ -31,7 +36,39 @@ export class SyncEngine {
     private readonly api: SyncApi,
     private readonly isReady: () => boolean,
     private readonly intervalMs = 30_000,
-  ) {}
+    private readonly onCycleFinished?: () => void,
+  ) {
+    SyncEngine.instances.add(this)
+  }
+
+  static async duringOutletTransition<T>(work: () => Promise<T>): Promise<T> {
+    if (this.queuedTransitions === 0) {
+      this.transitionBarrier = new Promise<void>((resolve) => {
+        this.releaseTransitionBarrier = resolve
+      })
+    }
+    this.queuedTransitions += 1
+
+    let releaseQueue = () => {}
+    const previousTransition = this.transitionQueue
+    this.transitionQueue = new Promise<void>((resolve) => {
+      releaseQueue = resolve
+    })
+
+    await previousTransition
+    try {
+      await Promise.all([...this.instances].map((engine) => engine.waitForActiveCycle()))
+      return await work()
+    } finally {
+      releaseQueue()
+      this.queuedTransitions -= 1
+      if (this.queuedTransitions === 0) {
+        this.transitionBarrier = null
+        this.releaseTransitionBarrier?.()
+        this.releaseTransitionBarrier = null
+      }
+    }
+  }
 
   status(): SyncStatus {
     return this._status
@@ -45,6 +82,7 @@ export class SyncEngine {
     this.stop()
     if (!this.isReady()) {
       this._status = 'disabled'
+      this.onCycleFinished?.()
       return
     }
     this.timer = setInterval(() => void this.syncOnce(), this.intervalMs)
@@ -56,13 +94,25 @@ export class SyncEngine {
     this.timer = null
   }
 
-  async syncOnce(): Promise<void> {
+  syncOnce(): Promise<void> {
+    const transitionBarrier = SyncEngine.transitionBarrier
+    if (transitionBarrier) return transitionBarrier.then(() => this.syncOnce())
+    if (this.activeCycle) return this.activeCycle
+
     if (!this.isReady()) {
       this._status = 'disabled'
-      return
+      return Promise.resolve()
     }
-    if (this.running) return // hindari overlap
-    this.running = true
+
+    this.activeCycle = this.runCycle()
+    return this.activeCycle
+  }
+
+  private async waitForActiveCycle(): Promise<void> {
+    while (this.activeCycle) await this.activeCycle
+  }
+
+  private async runCycle(): Promise<void> {
     this._status = 'syncing'
     this._lastError = null
     try {
@@ -73,52 +123,34 @@ export class SyncEngine {
       this._status = e instanceof ApiError && e.status === 0 ? 'offline' : 'error'
       this._lastError = e instanceof Error ? e.message : String(e)
     } finally {
-      this.running = false
+      this.activeCycle = null
+      this.onCycleFinished?.()
     }
   }
 
   private async push(): Promise<void> {
+    await this.outbox.recoverMissingDirty(SYNC_ENTITIES)
     const rows = await this.outbox.pending()
     if (!rows.length) return
 
-    const envelopes: ChangeEnvelope[] = rows.map((r) => ({
-      id: r.id,
-      entity: r.entity,
-      entityId: r.entity_id,
-      op: r.op,
-      payload: JSON.parse(r.payload),
-      createdAt: r.created_at,
-    }))
+    const envelopes: ChangeEnvelope[] = rows.map((r) => {
+      const payload: unknown = JSON.parse(r.payload)
+      return {
+        id: r.id,
+        entity: r.entity,
+        entityId: r.entity_id,
+        op: r.op,
+        payload,
+        createdAt: r.created_at,
+      }
+    })
     const res = await this.api.syncPush(envelopes)
 
-    const byId = new Map(rows.map((r) => [r.id, r]))
-    const db = getDb()
-    for (const id of res.acked) {
-      await this.outbox.markStatus(id, 'sent')
-      const r = byId.get(id)
-      if (r) await this.clearDirty(db, r)
-    }
-    for (const rej of res.rejected) {
-      await this.outbox.markStatus(rej.id, 'failed', rej.reason)
-    }
-    await this.outbox.purgeSent()
-  }
-
-  /** Set dirty=0 pada baris yang persis ter-push (cek updated_at/deleted_at
-   *  supaya tidak menghapus flag dari edit lokal yang lebih baru). */
-  private async clearDirty(db: ReturnType<typeof getDb>, r: OutboxRow): Promise<void> {
-    const payload = JSON.parse(r.payload) as { updated_at?: number; deleted_at?: number }
-    if (r.op === 'delete') {
-      await db.run(
-        `UPDATE ${r.entity} SET dirty = 0 WHERE id = ? AND deleted_at = ?`,
-        [r.entity_id, Number(payload.deleted_at ?? 0)],
-      )
-    } else {
-      await db.run(
-        `UPDATE ${r.entity} SET dirty = 0 WHERE id = ? AND updated_at = ?`,
-        [r.entity_id, Number(payload.updated_at ?? 0)],
-      )
-    }
+    await this.outbox.finalizePush({
+      rows,
+      acked: res.acked,
+      rejected: res.rejected,
+    })
   }
 
   private async pull(): Promise<void> {

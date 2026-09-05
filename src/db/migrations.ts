@@ -1,6 +1,7 @@
 import type { Db } from './types'
 import { nowMs } from '@/lib/datetime'
 import { seedDefaultCashflowCategories } from './seedCashflow'
+import { protectLegacyCashflowDefaults } from './migrations/protectLegacyCashflowDefaults'
 
 interface Migration {
   version: number
@@ -248,6 +249,7 @@ const migrations: Migration[] = [
       `)
     },
   },
+  protectLegacyCashflowDefaults,
 ]
 
 /** Jalanin migrasi yang belum di-apply, berurutan, tiap satu dalam transaksi. */

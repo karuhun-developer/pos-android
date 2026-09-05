@@ -18,12 +18,32 @@ login online (email/Google), lalu sinkronisasi dua arah.
 - `outbox` sudah terisi otomatis oleh semua repository sejak Phase 0.
 
 ## Flow (saat POS Pro aktif)
-1. **Push:** baca `outbox` pending → kirim `ChangeEnvelope[]` dengan `Bearer <jwt>`
-   → server balas `acked`/`rejected` → tandai outbox `sent`, set row `dirty=0` + `sync_version`.
-2. **Pull:** per entity `pull(entity, sync_state.last_pulled_at)` → upsert
+1. **Recovery sebelum push:** scan setiap entity syncable untuk row `dirty=1`
+   yang tidak memiliki envelope `outbox` dengan `entity` dan `entity_id` yang sama.
+   Recovery membangun ulang envelope `pending` (`update` untuk row aktif, `delete`
+   untuk tombstone), sehingga perubahan lokal lama tidak hilang hanya karena
+   envelope-nya gagal tersimpan.
+2. **Push:** baca `outbox` pending → kirim `ChangeEnvelope[]` dengan `Bearer <jwt>`
+   → server balas `acked`/`rejected` → tandai outbox `sent`; bila payload masih
+   cocok dengan row lokal, set row `dirty=0`. Acknowledgement push tidak mengubah
+   `sync_version`.
+   Penolakan tetap berstatus `failed` beserta alasannya, sehingga UI sync dapat
+   menampilkannya dan pengguna dapat menjalankan retry manual; retry
+   mengembalikannya ke `pending` lalu menjalankan sync lagi.
+3. **Pull:** per entity `pull(entity, sync_state.last_pulled_at)` → upsert
    last-write-wins by `updated_at`/`sync_version`, lewati row lokal `dirty` (defer konflik),
    majukan cursor.
-3. **Trigger:** online kembali (`@capacitor/network`) + timer periodik.
+4. **Trigger:** online kembali (`@capacitor/network`) + timer periodik.
+
+Kategori cashflow bawaan adalah baseline **device-local**, bukan data bisnis yang
+harus dibagikan: seed baru dibuat `dirty=0` tanpa envelope outbox. Migrasi v6
+membersihkan hanya cohort legacy lengkap: tepat sembilan row total pada satu
+`created_at`, seluruhnya eligible dan masing-masing cocok tepat sekali dengan
+satu default. Satu row ekstra, diubah, remote, terhapus, versioned, atau outboxed
+memblokir seluruh cohort; cohort parsial atau campuran tetap dirty dan tetap ikut
+sync. Tidak ada provenance historis, jadi clone yang sepenuhnya tidak dapat
+dibedakan dalam cohort sembilan-row yang sama juga tidak dapat dibedakan secara
+data.
 
 ## Phase 6 (selesai) — kontrak + backend
 - **Dokumen kontrak API v1** difinalisasi (`docs/api/pos-pro-api-v1.md`).
