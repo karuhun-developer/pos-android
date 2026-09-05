@@ -152,13 +152,13 @@ impor selalu membuat produk baru.
 termasuk duplikat **di dalam file itu sendiri**. Baris **tanpa** barcode selalu
 diimpor.
 
-Dua detail parsing yang tak boleh diubah (`src/lib/xlsx.ts`):
-- `raw: false` → semua sel dibaca sebagai **string**; tanpa ini barcode 13 digit
-  ke-parse jadi number dan keluar sebagai `8.99123e+12`. Baris yang terlanjur
-  rusak seperti itu ditolak dengan pesan yang menyuruh format kolomnya sebagai Teks.
-- CSV dibaca sebagai **teks**, bukan ArrayBuffer — lewat ArrayBuffer SheetJS menebak
-  codepage 1252 dan nama beraksen jadi mojibake. Ekspor CSV diawali BOM UTF-8 dengan
-  alasan yang sama (Excel locale ID).
+Dua detail parsing yang penting (`src/lib/xlsx.ts`):
+- Impor menerima `.csv` dan `.xlsx`; format `.xls` lama tidak didukung. File spreadsheet
+  yang rusak, bermakro, berisi external link, atau memakai formula ditolak sebelum
+  pratinjau/impor.
+- Nilai sel dibaca sebagai teks agar barcode 13 digit tidak berubah menjadi notasi ilmiah.
+  CSV diproses sebagai UTF-8 dan ekspornya diawali BOM UTF-8 supaya Excel locale ID
+  membukanya dengan benar.
 
 **Penulisan** (`src/services/products/productIo.ts`): repo dibangun di atas handle
 `tx`, bukan `getDb()` — `db.transaction()` reentrant-nya **per objek `Db`**, jadi

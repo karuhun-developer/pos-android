@@ -95,7 +95,7 @@ async function downloadTemplate() {
 }
 
 // ── Impor ──────────────────────────────────────────────────────────────────
-const ACCEPTED_EXTS = ['.csv', '.xlsx', '.xls']
+const ACCEPTED_EXTS = ['.csv', '.xlsx']
 
 async function chooseFile() {
   error.value = ''
@@ -104,7 +104,7 @@ async function chooseFile() {
   if (!file) return
   const name = file.name.toLowerCase()
   if (!ACCEPTED_EXTS.some((ext) => name.endsWith(ext))) {
-    error.value = 'File harus berformat .csv, .xlsx, atau .xls.'
+    error.value = 'File harus berformat .csv atau .xlsx.'
     return
   }
   fileName.value = file.name
