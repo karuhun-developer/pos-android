@@ -19,6 +19,21 @@ Tiap phase = satu rilis minor.
   **Coba lagi** yang mengantrekannya kembali (tanpa retry otomatis).
 - Pindah atau menambah outlet kini diblokir selama masih ada perubahan `pending`
   atau `failed`; data lokal baru di-reset setelah antrean aman disinkronkan.
+- Respons push kini divalidasi sebelum finalisasi: setiap ID `acked` atau
+  `rejected` harus berasal dari batch outbox yang baru dikirim dan tidak boleh
+  muncul lebih dari sekali. Respons tidak valid menjadi galat tanpa
+  memfinalisasi outbox di luar batch tersebut.
+
+### Security — impor spreadsheet dan kredensial Android
+- Parser impor CSV/XLSX diganti dengan pra-pemeriksaan sebelum pratinjau atau
+  penulisan data. Berkas rusak, macro, external link, package tersemat, formula
+  spreadsheet, relasi/XML tidak aman, dan formula CSV ditolak.
+- Kredensial akun Android kini disimpan dengan enkripsi Android Keystore.
+  Migrasi menulis penyimpanan aman sebelum menghapus token SQLite lama; kegagalan
+  secure-store atau pembersihan migrasi gagal tertutup agar token plaintext tidak
+  dipakai dan data yang diperlukan untuk pemulihan tidak hilang. Backup Android
+  dinonaktifkan, dengan aturan backup/data transfer yang mengecualikan database
+  dan shared preferences.
 
 ## [0.3.3] — 2026-09-04
 

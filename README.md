@@ -72,8 +72,8 @@ Versi app diturunkan dari tag: `versionName = X.Y.Z`,
 `versionCode = X*10000 + Y*100 + Z` (mis. `v1.3.0` → `10300`, selalu naik). Tag
 bukan `vX.Y.Z` → build sengaja gagal.
 
-Opsional, biar login Google & sync aktif di APK hasil CI, set **repo Variables**
-(Settings → Secrets and variables → Actions → Variables): `VITE_GOOGLE_CLIENT_ID`
+Opsional, biar login Google & sync aktif di APK hasil CI, set **repo Secrets**
+(Settings → Secrets and variables → Actions → Secrets): `VITE_GOOGLE_CLIENT_ID`
 & `VITE_API_BASE_URL`. Kalau kosong, APK tetap ke-build (offline).
 
 ## Roadmap
