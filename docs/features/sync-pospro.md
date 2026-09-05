@@ -54,7 +54,9 @@ data.
 - **HTTP client** `src/services/api/client.ts` (map ke `/sync/push` & `/sync/pull`
   kontrak v1) + `config.ts` (baca `VITE_API_BASE_URL`, `VITE_GOOGLE_CLIENT_ID`).
 - **Store `account`** (token Sanctum, login email/password + register + **Google
-  native** Android, toko aktif, ganti/tambah outlet) + **store `sync`** + `SyncEngine`
+  native** Android, toko aktif, ganti/tambah outlet) + **store `sync`** + `SyncEngine`.
+  Token Android disimpan melalui Android Keystore-backed encryption; token SQLite
+  lama dimigrasikan sekali lalu dihapus. Browser tetap memakai persistence yang ada.
   (push outbox → pull per-entity LWW/tombstone, auto saat online).
 - **UI Sambungkan** (`/connect`, `ConnectPage.vue`): Masuk/Daftar, pilih & ganti
   outlet (dengan modal konfirmasi), "Sync sekarang" + status.

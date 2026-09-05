@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { Capacitor } from '@capacitor/core'
 import { getDb } from '@/db/sqlite'
 import { resetLocalBusinessData } from '@/db/reset'
 import { SettingsRepository } from '@/repositories/settings.repo'
@@ -16,6 +17,14 @@ import {
 } from '@/services/api/client'
 import { ENV_API_BASE_URL } from '@/services/api/config'
 import { signInWithGoogle, signOutGoogle } from '@/services/auth/google'
+import {
+  clearAccountCredential,
+  loadAccountCredential,
+  persistAccountCredential,
+  type AccountCredentialStorage,
+  SecureCredentialUnavailableError,
+} from '@/services/auth/accountCredentials'
+import { androidSecureCredentialStore } from '@/services/auth/androidSecureCredentials'
 import { SYNC_ENTITIES } from '@/services/sync/applyPull'
 import { SyncEngine } from '@/services/sync/SyncEngine'
 
@@ -33,7 +42,8 @@ const UNRESOLVED_OUTBOX_ERROR =
 
 /**
  * Akun cloud POS Pro: sumber tunggal token bearer + toko aktif. Beda dengan
- * `stores/auth.ts` (kunci PIN lokal). Token & profil dipersist di tabel settings.
+ * `stores/auth.ts` (kunci PIN lokal). Di Android, token disimpan melalui
+ * Android Keystore; browser mempertahankan penyimpanan settings yang ada.
  */
 export const useAccountStore = defineStore('account', () => {
   const settings = useSettingsStore()
@@ -55,23 +65,47 @@ export const useAccountStore = defineStore('account', () => {
     return new SettingsRepository(getDb())
   }
 
+  function credentialStorage(): AccountCredentialStorage {
+    const legacy = {
+      read: () => repo().get(KEYS.token),
+      write: (value: string) => repo().set(KEYS.token, value),
+      remove: () => repo().set(KEYS.token, ''),
+    }
+
+    if (Capacitor.getPlatform() === 'android') {
+      return { kind: 'android', legacy, secure: androidSecureCredentialStore }
+    }
+    return { kind: 'browser', legacy }
+  }
+
   // Header dinamis untuk ApiClient (di-resolve tiap request).
   const context: ApiContext = {
     baseUrl: () => baseUrl.value,
     token: () => token.value,
     deviceId: () => settings.deviceId,
     storeId: () => currentStoreId.value,
-    onUnauthorized: () => void clearSession(),
+    onUnauthorized: () => void clearSessionAfterUnauthorized(),
   }
   const api = new ApiClient(context)
 
   async function load(): Promise<void> {
     const all = await repo().getAll()
     baseUrl.value = all[KEYS.baseUrl] || ENV_API_BASE_URL
-    token.value = all[KEYS.token] || null
-    user.value = all[KEYS.user] ? (JSON.parse(all[KEYS.user]) as AccountUser) : null
-    stores.value = all[KEYS.stores] ? (JSON.parse(all[KEYS.stores]) as AccountStore[]) : []
-    currentStoreId.value = all[KEYS.storeId] || null
+
+    const credential = await loadAccountCredential(credentialStorage())
+    if (credential.kind === 'secure-unavailable') {
+      token.value = null
+      user.value = null
+      stores.value = []
+      currentStoreId.value = null
+      error.value = 'Penyimpanan kredensial aman Android tidak tersedia. Silakan masuk kembali.'
+      return
+    }
+
+    token.value = credential.kind === 'loaded' ? credential.value : null
+    user.value = token.value && all[KEYS.user] ? (JSON.parse(all[KEYS.user]) as AccountUser) : null
+    stores.value = token.value && all[KEYS.stores] ? (JSON.parse(all[KEYS.stores]) as AccountStore[]) : []
+    currentStoreId.value = token.value ? all[KEYS.storeId] || null : null
   }
 
   async function setBaseUrl(url: string): Promise<void> {
@@ -80,17 +114,18 @@ export const useAccountStore = defineStore('account', () => {
   }
 
   async function applyAuth(p: AuthPayload): Promise<void> {
+    const nextStoreId =
+      (p.user.current_store_id != null ? String(p.user.current_store_id) : null) ??
+      (p.stores[0] ? String(p.stores[0].id) : null)
+    await persistAccountCredential(credentialStorage(), p.token)
     token.value = p.token
     user.value = p.user
     stores.value = p.stores
-    currentStoreId.value =
-      (p.user.current_store_id != null ? String(p.user.current_store_id) : null) ??
-      (p.stores[0] ? String(p.stores[0].id) : null)
+    currentStoreId.value = nextStoreId
     await repo().setMany({
-      [KEYS.token]: p.token,
       [KEYS.user]: JSON.stringify(p.user),
       [KEYS.stores]: JSON.stringify(p.stores),
-      [KEYS.storeId]: currentStoreId.value ?? '',
+      [KEYS.storeId]: nextStoreId ?? '',
     })
   }
 
@@ -200,11 +235,24 @@ export const useAccountStore = defineStore('account', () => {
     user.value = null
     stores.value = []
     currentStoreId.value = null
-    await repo().setMany({
-      [KEYS.token]: '',
-      [KEYS.user]: '',
-      [KEYS.stores]: '',
-      [KEYS.storeId]: '',
+    try {
+      await clearAccountCredential(credentialStorage())
+    } finally {
+      await repo().setMany({
+        [KEYS.user]: '',
+        [KEYS.stores]: '',
+        [KEYS.storeId]: '',
+      })
+    }
+  }
+
+  function clearSessionAfterUnauthorized(): void {
+    void clearSession().catch((e: unknown) => {
+      if (e instanceof SecureCredentialUnavailableError) {
+        error.value = e.message
+        return
+      }
+      error.value = 'Gagal membersihkan sesi lokal.'
     })
   }
 
@@ -214,8 +262,11 @@ export const useAccountStore = defineStore('account', () => {
     } catch {
       /* token mungkin sudah invalid — tetap bersihkan lokal */
     }
-    await signOutGoogle()
-    await clearSession()
+    try {
+      await signOutGoogle()
+    } finally {
+      await clearSession()
+    }
   }
 
   return {
