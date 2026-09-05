@@ -132,18 +132,27 @@ export const useAccountStore = defineStore('account', () => {
   async function setCurrentStore(id: string): Promise<boolean> {
     if (id === currentStoreId.value) return true
     return SyncEngine.duringOutletTransition(async () => {
-      const outbox = new OutboxRepository(getDb())
-      await outbox.recoverMissingDirty(SYNC_ENTITIES)
-      if ((await outbox.countUnresolved()) > 0) {
-        error.value = UNRESOLVED_OUTBOX_ERROR
-        return false
-      }
-      await resetLocalBusinessData()
-      useMediaStore().clear()
-      currentStoreId.value = id
-      await repo().set(KEYS.storeId, id)
+      if (!(await canTransitionOutlets())) return false
+      await resetAndActivateStore(id)
       return true
     })
+  }
+
+  async function canTransitionOutlets(): Promise<boolean> {
+    const outbox = new OutboxRepository(getDb())
+    await outbox.recoverMissingDirty(SYNC_ENTITIES)
+    if ((await outbox.countUnresolved()) > 0) {
+      error.value = UNRESOLVED_OUTBOX_ERROR
+      return false
+    }
+    return true
+  }
+
+  async function resetAndActivateStore(id: string): Promise<void> {
+    await resetLocalBusinessData()
+    useMediaStore().clear()
+    currentStoreId.value = id
+    await repo().set(KEYS.storeId, id)
   }
 
   async function persistStores(): Promise<void> {
@@ -155,10 +164,14 @@ export const useAccountStore = defineStore('account', () => {
     status.value = 'loading'
     error.value = null
     try {
-      const res = await api.createStore(name)
-      stores.value = res.stores
-      await persistStores()
-      return await setCurrentStore(String(res.store.id))
+      return await SyncEngine.duringOutletTransition(async () => {
+        if (!(await canTransitionOutlets())) return false
+        const res = await api.createStore(name)
+        stores.value = res.stores
+        await persistStores()
+        await resetAndActivateStore(String(res.store.id))
+        return true
+      })
     } catch (e) {
       error.value = e instanceof Error ? e.message : String(e)
       return false
