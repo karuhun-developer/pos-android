@@ -3,6 +3,8 @@ import { persist } from '@/db/sqlite'
 import { nowMs } from '@/lib/datetime'
 import { uuid } from '@/lib/uuid'
 import type { SyncEntityName } from '@/services/sync/applyPull'
+import { assertPushResultMatchesSubmitted } from '@/services/sync/types'
+import type { PushResult } from '@/services/sync/types'
 
 export interface FailedOutboxChange {
   id: string
@@ -14,13 +16,8 @@ export interface FailedOutboxChange {
 
 interface PushFinalization {
   readonly rows: readonly OutboxRow[]
-  readonly acked: readonly string[]
-  readonly rejected: readonly RejectedOutboxChange[]
-}
-
-interface RejectedOutboxChange {
-  readonly id: string
-  readonly reason: string
+  readonly acked: PushResult['acked']
+  readonly rejected: PushResult['rejected']
 }
 
 interface RecoverableDirtyRow extends Record<string, unknown> {
@@ -135,23 +132,30 @@ export class OutboxRepository {
 
   async finalizePush({ rows, acked, rejected }: PushFinalization): Promise<void> {
     const pushedById = new Map(rows.map((row) => [row.id, row]))
+    assertPushResultMatchesSubmitted({ acked, rejected }, pushedById.keys())
 
     await this.db.transaction(async (tx) => {
       for (const id of acked) {
-        await tx.run(
-          `UPDATE outbox SET status = 'sent', last_error = NULL, attempts = attempts + 1 WHERE id = ?`,
+        const update = await tx.run(
+          `UPDATE outbox
+           SET status = 'sent', last_error = NULL, attempts = attempts + 1
+           WHERE id = ? AND status = 'pending'`,
           [id],
         )
         const row = pushedById.get(id)
-        if (row) await this.clearDirty(tx, row)
+        if (update.changes === 1 && row) {
+          await this.clearDirty(tx, row)
+          await tx.run(`DELETE FROM outbox WHERE id = ? AND status = 'sent'`, [id])
+        }
       }
       for (const rejectedChange of rejected) {
         await tx.run(
-          `UPDATE outbox SET status = 'failed', last_error = ?, attempts = attempts + 1 WHERE id = ?`,
+          `UPDATE outbox
+           SET status = 'failed', last_error = ?, attempts = attempts + 1
+           WHERE id = ? AND status = 'pending'`,
           [rejectedChange.reason, rejectedChange.id],
         )
       }
-      await tx.run(`DELETE FROM outbox WHERE status = 'sent'`)
     })
 
     await persist()

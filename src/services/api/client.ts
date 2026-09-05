@@ -1,3 +1,4 @@
+import { parsePushResult } from '@/services/sync/types'
 import type { ChangeEnvelope, PushResult, PullResult } from '@/services/sync/types'
 
 /** Bentuk error standar Laravel `{ message, errors }`. */
@@ -134,8 +135,9 @@ export class ApiClient {
   }
 
   // ── Sync ────────────────────────────────────────────────────────────────
-  syncPush(changes: ChangeEnvelope[]): Promise<PushResult> {
-    return this.request('POST', '/sync/push', { changes })
+  async syncPush(changes: ChangeEnvelope[]): Promise<PushResult> {
+    const response = await this.request<unknown>('POST', '/sync/push', { changes })
+    return parsePushResult(response)
   }
 
   syncPull(entity: string, since: number): Promise<PullResult> {

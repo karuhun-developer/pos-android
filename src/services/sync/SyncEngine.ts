@@ -1,3 +1,4 @@
+import { assertPushResultMatchesSubmitted } from './types'
 import type { SyncStatus, ChangeEnvelope, PushResult, PullResult } from './types'
 import { ApiError } from '@/services/api/client'
 
@@ -145,6 +146,7 @@ export class SyncEngine {
       }
     })
     const res = await this.api.syncPush(envelopes)
+    assertPushResultMatchesSubmitted(res, rows.map((row) => row.id))
 
     await this.outbox.finalizePush({
       rows,
