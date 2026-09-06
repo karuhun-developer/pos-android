@@ -27,7 +27,9 @@ Tiap phase = satu rilis minor.
 ### Security — impor spreadsheet dan kredensial Android
 - Parser impor CSV/XLSX diganti dengan pra-pemeriksaan sebelum pratinjau atau
   penulisan data. Berkas rusak, macro, external link, package tersemat, formula
-  spreadsheet, relasi/XML tidak aman, dan formula CSV ditolak.
+  spreadsheet, relasi/XML tidak aman, dan formula CSV ditolak. Ekspor CSV juga
+  menambahkan apostrof pada nilai yang dimulai dengan `=`, `+`, `-`, atau `@`
+  agar spreadsheet tidak menjalankannya sebagai formula.
 - Kredensial akun Android kini disimpan dengan enkripsi Android Keystore.
   Migrasi menulis penyimpanan aman sebelum menghapus token SQLite lama; kegagalan
   secure-store atau pembersihan migrasi gagal tertutup agar token plaintext tidak
