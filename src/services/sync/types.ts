@@ -95,6 +95,12 @@ export function assertPushResultMatchesSubmitted(
     }
     resolved.add(rejected.id)
   }
+
+  for (const id of submitted) {
+    if (!resolved.has(id)) {
+      throw new InvalidPushResultError(`id batch tidak diselesaikan: ${id}`)
+    }
+  }
 }
 
 export interface PullResult {
